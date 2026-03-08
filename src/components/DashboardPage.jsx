@@ -54,6 +54,18 @@ function fmt(dateStr) {
   return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })
 }
 
+function getGreeting() {
+  const h = new Date().getHours()
+  if (h < 12) return "Good morning"
+  if (h < 17) return "Good afternoon"
+  return "Good evening"
+}
+
+function getFirstName(fullName) {
+  if (!fullName) return ""
+  return fullName.trim().split(" ")[0]
+}
+
 // Keys in tasks are: stageId__role__Task Name
 // e.g. "instruction__vendor__ID to Solicitor"
 // We search for any key matching stageId__*__taskName regardless of role
@@ -158,6 +170,9 @@ export default function DashboardPage({ session }) {
   const branchPhone   = (branchData && branchData.phone)   || (caseData && caseData.branchPhone) || ""
   const branchEmail   = (branchData && branchData.email)   || (caseData && caseData.branchEmail) || ""
   const vSol = caseData && caseData.vendorSolicitor
+  const vendorName = (caseData && caseData.vendorName) || (caseData && caseData.vendor && caseData.vendor.name) || ""
+  const firstName = getFirstName(vendorName)
+  const greeting = getGreeting()
 
   const stageStatusFor = function(i) {
     if (isCompleted) return "complete"
@@ -173,26 +188,76 @@ export default function DashboardPage({ session }) {
   const pillLabel  = function(s) { return s === "complete" ? "Complete" : s === "active" ? "In progress" : "Upcoming" }
 
   return (
-    React.createElement("div", { style: { minHeight: "100vh", background: "#f8f7f4", paddingBottom: 80 } },
+    React.createElement("div", { className: "portal-root", style: { minHeight: "100vh", background: "#f3f4f6", paddingBottom: 80 } },
 
-      React.createElement("div", { style: { background: "linear-gradient(135deg, #0f2952 0%, #1e3a6e 100%)", padding: "24px 20px 20px" } },
-        React.createElement("div", { style: { maxWidth: 600, margin: "0 auto" } },
-          React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 } },
-            React.createElement("div", null,
-              React.createElement("div", { style: { fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#93c5fd", marginBottom: 4 } }, branchName),
-              React.createElement("div", { style: { fontFamily: "DM Serif Display, serif", fontSize: 22, color: "#fff", lineHeight: 1.3 } }, address || "Your Property")
+      React.createElement("style", null, `
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=DM+Serif+Display:ital@0;1&display=swap');
+        * { box-sizing: border-box; }
+        .portal-root { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
+        .portal-header { background: linear-gradient(150deg, #071527 0%, #0d2044 45%, #0f2952 100%); position: relative; overflow: hidden; }
+        .portal-orb-1 { position: absolute; top: -80px; right: -60px; width: 280px; height: 280px; background: radial-gradient(circle, rgba(79,70,229,0.18) 0%, transparent 65%); pointer-events: none; }
+        .portal-orb-2 { position: absolute; bottom: -60px; left: -40px; width: 200px; height: 200px; background: radial-gradient(circle, rgba(15,118,110,0.15) 0%, transparent 65%); pointer-events: none; }
+        .portal-orb-3 { position: absolute; top: 35%; right: 15%; width: 140px; height: 140px; background: radial-gradient(circle, rgba(56,189,248,0.07) 0%, transparent 65%); pointer-events: none; }
+        .stage-pip { transition: all 0.2s; }
+        .tab-btn { font-family: 'Inter', sans-serif; transition: all 0.15s; }
+      `),
+
+      React.createElement("div", { className: "portal-header" },
+        React.createElement("div", { className: "portal-orb-1" }),
+        React.createElement("div", { className: "portal-orb-2" }),
+        React.createElement("div", { className: "portal-orb-3" }),
+
+        React.createElement("div", { style: { maxWidth: 600, margin: "0 auto", padding: "18px 20px 28px", position: "relative", zIndex: 1 } },
+
+          React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 28 } },
+            React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 9 } },
+              React.createElement("div", { style: { width: 30, height: 30, background: "#0F766E", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 14, color: "#fff", flexShrink: 0 } }, "M"),
+              React.createElement("div", null,
+                React.createElement("div", { style: { fontFamily: "Inter, sans-serif", fontWeight: 700, fontSize: 13, color: "rgba(255,255,255,0.9)", lineHeight: 1.1 } }, branchName),
+                React.createElement("div", { style: { fontFamily: "Inter, sans-serif", fontWeight: 400, fontSize: 10, color: "rgba(255,255,255,0.4)", marginTop: 2, letterSpacing: "0.05em", textTransform: "uppercase" } }, "Sale Tracker")
+              )
             ),
-            React.createElement("button", { onClick: handleSignOut, style: { background: "rgba(255,255,255,0.12)", border: "none", borderRadius: 8, padding: "6px 12px", color: "#93c5fd", fontSize: 12, cursor: "pointer", flexShrink: 0, marginLeft: 12 } }, "Sign out")
+            React.createElement("button", { onClick: handleSignOut, style: { background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8, padding: "6px 14px", color: "rgba(255,255,255,0.5)", fontSize: 11, fontFamily: "Inter, sans-serif", fontWeight: 500, cursor: "pointer", flexShrink: 0 } }, "Sign out")
           ),
-          React.createElement("div", { style: { display: "inline-flex", alignItems: "center", gap: 6, background: isCompleted ? "rgba(34,197,94,0.2)" : "rgba(99,102,241,0.2)", borderRadius: 20, padding: "5px 12px", border: "1px solid " + (isCompleted ? "rgba(34,197,94,0.4)" : "rgba(99,102,241,0.4)") } },
-            React.createElement("div", { style: { width: 7, height: 7, borderRadius: "50%", background: isCompleted ? "#22c55e" : "#818cf8", flexShrink: 0 } }),
-            React.createElement("span", { style: { fontSize: 12, fontWeight: 600, color: isCompleted ? "#86efac" : "#c7d2fe" } },
-              isCompleted ? "Sale Completed" : ("Stage " + (currentStageIdx + 1) + " of " + STAGES.length + " - " + (STAGES[currentStageIdx] && STAGES[currentStageIdx].label))
+
+          React.createElement("div", { style: { marginBottom: 24 } },
+            React.createElement("div", { style: { display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 20, padding: "5px 12px 5px 9px", marginBottom: 14 } },
+              React.createElement("span", { style: { fontSize: 14, lineHeight: 1 } }, "👋"),
+              React.createElement("span", { style: { fontFamily: "Inter, sans-serif", fontSize: 12, fontWeight: 500, color: "rgba(255,255,255,0.65)" } },
+                greeting + (firstName ? (", " + firstName) : "")
+              )
+            ),
+            React.createElement("div", { style: { fontFamily: "DM Serif Display, serif", fontSize: 28, color: "#ffffff", lineHeight: 1.2, letterSpacing: "-0.01em", marginBottom: 8 } },
+              address || "Your Property"
+            ),
+            React.createElement("div", { style: { fontFamily: "Inter, sans-serif", fontSize: 13, color: "rgba(255,255,255,0.4)", fontWeight: 400, lineHeight: 1.5 } },
+              "Your sale is being managed by " + branchName + ". Track every step below."
             )
           ),
-          confirmedDate && React.createElement("div", { style: { marginTop: 8, fontSize: 13, color: "#bfdbfe" } },
-            isCompleted ? ("Completed " + fmt(confirmedDate)) : ("Completion date: " + fmt(confirmedDate))
+
+          React.createElement("div", { style: { background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", borderRadius: 14, padding: "14px 16px" } },
+            React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 } },
+              React.createElement("div", { style: { fontFamily: "Inter, sans-serif", fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.35)", textTransform: "uppercase", letterSpacing: "0.08em" } }, "Sale Progress"),
+              React.createElement("div", { style: { display: "inline-flex", alignItems: "center", gap: 5, background: isCompleted ? "rgba(34,197,94,0.15)" : "rgba(99,102,241,0.18)", borderRadius: 20, padding: "3px 10px", border: "1px solid " + (isCompleted ? "rgba(34,197,94,0.28)" : "rgba(99,102,241,0.28)") } },
+                React.createElement("div", { style: { width: 6, height: 6, borderRadius: "50%", background: isCompleted ? "#22c55e" : "#818cf8", boxShadow: "0 0 5px " + (isCompleted ? "rgba(34,197,94,0.8)" : "rgba(129,140,248,0.8)") } }),
+                React.createElement("span", { style: { fontFamily: "Inter, sans-serif", fontSize: 11, fontWeight: 600, color: isCompleted ? "#86efac" : "#c7d2fe" } },
+                  isCompleted ? "Completed" : (STAGES[currentStageIdx] && STAGES[currentStageIdx].label)
+                )
+              )
+            ),
+            React.createElement("div", { style: { display: "flex", gap: 4, alignItems: "center" } },
+              STAGES.map(function(stage, i) {
+                const s = stageStatusFor(i)
+                const isDone = s === "complete"
+                const isActive = s === "active"
+                return React.createElement("div", { key: stage.id, className: "stage-pip", style: { flex: 1, height: 5, borderRadius: 3, background: isDone ? "#22c55e" : isActive ? "#818cf8" : "rgba(255,255,255,0.12)", boxShadow: isActive ? "0 0 8px rgba(129,140,248,0.5)" : isDone ? "0 0 5px rgba(34,197,94,0.35)" : "none" } })
+              })
+            ),
+            confirmedDate && React.createElement("div", { style: { fontFamily: "Inter, sans-serif", fontSize: 12, color: "rgba(255,255,255,0.35)", marginTop: 10 } },
+              (isCompleted ? "Completed on " : "Target completion: ") + fmt(confirmedDate)
+            )
           )
+
         )
       ),
 
