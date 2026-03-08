@@ -341,7 +341,7 @@ export default function DashboardPage({ session, caseId: propCaseId, showBack, o
               address || "Your Property"
             ),
             React.createElement("div", { style: { fontFamily: "Inter, sans-serif", fontSize: 13, color: "rgba(255,255,255,0.4)", fontWeight: 400, lineHeight: 1.5 } },
-              "Your sale is being managed by " + brandAndBranch + ". Track every step below."
+              "Your " + (contactRole === "buyer" ? "purchase" : "sale") + " is being managed by " + brandAndBranch + ". Track every step below."
             )
           ),
 
