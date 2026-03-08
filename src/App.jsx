@@ -5,30 +5,209 @@ import SetPasswordPage from './components/SetPasswordPage.jsx'
 import DashboardPage from './components/DashboardPage.jsx'
 import LoadingScreen from './components/LoadingScreen.jsx'
 
+function getGreeting() {
+  const h = new Date().getHours()
+  if (h < 12) return 'Good morning'
+  if (h < 17) return 'Good afternoon'
+  return 'Good evening'
+}
+
+function getFirstName(fullName) {
+  if (!fullName) return ''
+  return fullName.trim().split(' ')[0]
+}
+
+function getStageLabel(caseData) {
+  if (!caseData) return 'Unknown'
+  if (caseData.completed) return 'Completed'
+  const tasks = caseData.tasks || {}
+  const stages = [
+    { id: 'instruction', label: 'Instructed', tasks: ['ID to Solicitor', 'Welcome Pack Received', 'Welcome Pack Completed and Sent to Solicitor'] },
+    { id: 'preExchange', label: 'Legal', tasks: ['Draft Contract to Buyers Solicitor', 'Draft Contract Received', 'Search Money Received', 'Searches Due Back', 'Searches Received', 'Searches Paid', 'Mortgage Offer Received', 'Submit Mortgage Application', 'Homebuyers Booked', 'Homebuyers Report Received', 'Enquiries Resolved'] },
+    { id: 'exchange', label: 'Exchange Ready', tasks: ['Contracts Exchanged'] },
+    { id: 'completion', label: 'Completion', tasks: ['Funds Received', 'Pick Up Keys'] },
+  ]
+  for (const stage of stages) {
+    const doneCount = stage.tasks.filter(taskName => {
+      const suffix = '__' + taskName
+      return Object.keys(tasks).some(k => k.startsWith(stage.id + '__') && k.endsWith(suffix) && tasks[k].done)
+    }).length
+    if (doneCount < stage.tasks.length) return stage.label
+  }
+  return 'Completion'
+}
+
+function CasePickerPage({ session, onSelectCase }) {
+  const [cases, setCases] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [branchNames, setBranchNames] = useState({})
+
+  useEffect(() => { loadCases() }, [session])
+
+  const loadCases = async () => {
+    try {
+      const email = session.user.email
+      const { data, error } = await supabase
+        .from('cases')
+        .select('id, data')
+        .or(`data->>'vendor'->>'email'.eq.${email},data->>'buyer'->>'email'.eq.${email}`)
+
+      // Fallback: fetch all and filter client-side (more compatible)
+      const { data: allData } = await supabase
+        .from('cases')
+        .select('id, data')
+
+      const matched = (allData || []).filter(row => {
+        const d = row.data || {}
+        return (d.vendor && d.vendor.email === email) ||
+               (d.buyer && d.buyer.email === email)
+      })
+
+      setCases(matched)
+
+      // Fetch branch names
+      const branchIds = [...new Set(matched.map(r => r.data && r.data.branch_id).filter(Boolean))]
+      if (branchIds.length > 0) {
+        const { data: branches } = await supabase
+          .from('branches')
+          .select('id, name')
+          .in('id', branchIds)
+        const map = {}
+        ;(branches || []).forEach(b => { map[b.id] = b.name })
+        setBranchNames(map)
+      }
+    } catch (err) {
+      console.error('Error loading cases:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut()
+    window.location.reload()
+  }
+
+  const vendorName = session.user.user_metadata && session.user.user_metadata.vendor_name
+  const firstName = getFirstName(vendorName || session.user.email)
+  const greeting = getGreeting()
+
+  if (loading) return (
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f3f4f6' }}>
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ width: 36, height: 36, borderRadius: '50%', border: '3px solid #e5e7eb', borderTopColor: '#0f2952', animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }} />
+        <div style={{ fontSize: 14, color: '#9ca3af', fontFamily: 'Inter, sans-serif' }}>Loading your sales...</div>
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    </div>
+  )
+
+  return (
+    <div style={{ minHeight: '100vh', background: '#f3f4f6', fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif' }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=DM+Serif+Display:ital@0;1&display=swap');
+        .case-card { background: #fff; border-radius: 16px; border: 1.5px solid #e5e7eb; padding: 20px; cursor: pointer; transition: all 0.15s; text-decoration: none; display: block; }
+        .case-card:hover { border-color: #a5b4fc; box-shadow: 0 4px 20px rgba(99,102,241,0.1); transform: translateY(-1px); }
+        .case-card:active { transform: translateY(0); }
+      `}</style>
+
+      <div style={{ background: 'linear-gradient(150deg, #071527 0%, #0d2044 45%, #0f2952 100%)', padding: '20px 20px 32px', position: 'relative', overflow: 'hidden' }}>
+        <div style={{ position: 'absolute', top: -80, right: -60, width: 280, height: 280, background: 'radial-gradient(circle, rgba(79,70,229,0.18) 0%, transparent 65%)', pointerEvents: 'none' }} />
+        <div style={{ maxWidth: 600, margin: '0 auto', position: 'relative', zIndex: 1 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 28 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+              <div style={{ width: 30, height: 30, background: '#0F766E', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 14, color: '#fff', flexShrink: 0 }}>M</div>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 13, color: 'rgba(255,255,255,0.9)', lineHeight: 1.1 }}>Northwood</div>
+                <div style={{ fontWeight: 400, fontSize: 10, color: 'rgba(255,255,255,0.4)', marginTop: 2, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Sale Tracker</div>
+              </div>
+            </div>
+            <button onClick={handleSignOut} style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '6px 14px', color: 'rgba(255,255,255,0.5)', fontSize: 11, fontWeight: 500, cursor: 'pointer' }}>Sign out</button>
+          </div>
+
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 20, padding: '5px 12px 5px 9px', marginBottom: 14 }}>
+            <span style={{ fontSize: 14, lineHeight: 1 }}>👋</span>
+            <span style={{ fontSize: 12, fontWeight: 500, color: 'rgba(255,255,255,0.65)' }}>{greeting}{firstName ? `, ${firstName}` : ''}</span>
+          </div>
+          <div style={{ fontFamily: 'DM Serif Display, serif', fontSize: 26, color: '#fff', lineHeight: 1.2, marginBottom: 6 }}>Your Properties</div>
+          <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', lineHeight: 1.5 }}>
+            {cases.length === 1 ? 'You have 1 active sale being tracked.' : `You have ${cases.length} sales being tracked. Select one to view progress.`}
+          </div>
+        </div>
+      </div>
+
+      <div style={{ maxWidth: 600, margin: '0 auto', padding: '24px 16px' }}>
+        {cases.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '40px 20px' }}>
+            <div style={{ fontSize: 40, marginBottom: 12 }}>🏡</div>
+            <div style={{ fontFamily: 'DM Serif Display, serif', fontSize: 20, color: '#1e293b', marginBottom: 8 }}>No cases found</div>
+            <div style={{ fontSize: 14, color: '#6b7280' }}>We could not find any cases linked to your email address. Please contact your agent.</div>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {cases.map(row => {
+              const d = row.data || {}
+              const address = d.address || [d.addressLine1, d.town, d.postcode].filter(Boolean).join(', ') || 'Unknown address'
+              const email = session.user.email
+              const isVendor = d.vendor && d.vendor.email === email
+              const role = isVendor ? 'Sale' : 'Purchase'
+              const roleColor = isVendor ? '#0f2952' : '#0f766e'
+              const roleBg = isVendor ? '#eef2ff' : '#f0fdf4'
+              const stage = getStageLabel(d)
+              const isCompleted = d.completed
+              const branchName = (d.branch_id && branchNames[d.branch_id]) || 'Northwood'
+
+              return (
+                <div key={row.id} className="case-card" onClick={() => onSelectCase(row.id, d)}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 14 }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 700, fontSize: 16, color: '#0f172a', lineHeight: 1.3, marginBottom: 4 }}>{address}</div>
+                      <div style={{ fontSize: 13, color: '#6b7280' }}>{branchName}</div>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, flexShrink: 0 }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: roleColor, background: roleBg, borderRadius: 20, padding: '3px 10px' }}>{role}</div>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 12, borderTop: '1px solid #f1f5f9' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <div style={{ width: 7, height: 7, borderRadius: '50%', background: isCompleted ? '#22c55e' : '#818cf8', boxShadow: '0 0 5px ' + (isCompleted ? 'rgba(34,197,94,0.6)' : 'rgba(129,140,248,0.6)'), flexShrink: 0 }} />
+                      <span style={{ fontSize: 13, fontWeight: 500, color: '#374151' }}>{stage}</span>
+                    </div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: '#6366f1' }}>View &rarr;</div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export default function App() {
   const [appState, setAppState] = useState('loading')
   const [session, setSession] = useState(null)
   const [inviteToken, setInviteToken] = useState(null)
   const [inviteData, setInviteData] = useState(null)
   const [errorMsg, setErrorMsg] = useState('')
+  const [selectedCaseId, setSelectedCaseId] = useState(null)
+  const [allCases, setAllCases] = useState([])
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const token = params.get('token')
-
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
         setSession(session)
-        setAppState('dashboard')
+        checkCases(session)
         return
       }
-
       if (token) {
         setInviteToken(token)
         validateToken(token)
         return
       }
-
       setErrorMsg('No invite link found. Please check your email for your portal invite.')
       setAppState('error')
     }).catch(() => {
@@ -39,12 +218,39 @@ export default function App() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session) {
         setSession(session)
-        setAppState('dashboard')
+        checkCases(session)
       }
     })
-
     return () => subscription.unsubscribe()
   }, [])
+
+  const checkCases = async (session) => {
+    try {
+      const email = session.user.email
+      const { data: allData } = await supabase.from('cases').select('id, data')
+      const matched = (allData || []).filter(row => {
+        const d = row.data || {}
+        return (d.vendor && d.vendor.email === email) ||
+               (d.buyer && d.buyer.email === email)
+      })
+
+      setAllCases(matched)
+
+      if (matched.length === 1) {
+        setSelectedCaseId(matched[0].id)
+        setAppState('dashboard')
+      } else if (matched.length > 1) {
+        setAppState('case-picker')
+      } else {
+        // Fall back to single case_id from user_metadata
+        setSelectedCaseId(session.user.user_metadata && session.user.user_metadata.case_id)
+        setAppState('dashboard')
+      }
+    } catch (err) {
+      setSelectedCaseId(session.user.user_metadata && session.user.user_metadata.case_id)
+      setAppState('dashboard')
+    }
+  }
 
   const validateToken = async (token) => {
     try {
@@ -53,29 +259,19 @@ export default function App() {
         .select('case_id, email, role, expires_at, accepted_at')
         .eq('token', token)
         .single()
-
       if (error || !data) {
         setErrorMsg('This invite link is invalid or has expired.')
         setAppState('error')
         return
       }
-
       if (new Date(data.expires_at) < new Date()) {
         setErrorMsg('This invite link has expired. Please contact your agent for a new one.')
         setAppState('error')
         return
       }
-
-      const { data: caseRow } = await supabase
-        .from('cases')
-        .select('data')
-        .eq('id', data.case_id)
-        .single()
-
+      const { data: caseRow } = await supabase.from('cases').select('data').eq('id', data.case_id).single()
       const caseData = caseRow?.data || {}
-      const address = caseData.address ||
-        [caseData.addressLine1, caseData.town, caseData.postcode].filter(Boolean).join(', ')
-
+      const address = caseData.address || [caseData.addressLine1, caseData.town, caseData.postcode].filter(Boolean).join(', ')
       setInviteData({ caseId: data.case_id, email: data.email, role: data.role, address, token })
       setAppState('invite')
     } catch (err) {
@@ -86,15 +282,22 @@ export default function App() {
 
   const handleInviteAccepted = () => setAppState('set-password')
 
+  const handleSelectCase = (caseId) => {
+    setSelectedCaseId(caseId)
+    setAppState('dashboard')
+  }
+
+  const handleBackToPicker = () => {
+    setAppState('case-picker')
+  }
+
   if (appState === 'loading') return <LoadingScreen />
 
   if (appState === 'error') return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
       <div style={{ maxWidth: 400, textAlign: 'center' }}>
         <div style={{ fontSize: 48, marginBottom: 16 }}>🔒</div>
-        <div style={{ fontFamily: "'DM Serif Display', serif", fontSize: 24, color: '#1a1a2e', marginBottom: 12 }}>
-          Access Required
-        </div>
+        <div style={{ fontFamily: "'DM Serif Display', serif", fontSize: 24, color: '#1a1a2e', marginBottom: 12 }}>Access Required</div>
         <div style={{ fontSize: 15, color: '#6b7280', lineHeight: 1.6 }}>{errorMsg}</div>
       </div>
     </div>
@@ -102,7 +305,14 @@ export default function App() {
 
   if (appState === 'invite') return <InvitePage inviteData={inviteData} onAccept={handleInviteAccepted} />
   if (appState === 'set-password') return <SetPasswordPage inviteData={inviteData} />
-  if (appState === 'dashboard') return <DashboardPage session={session} />
-
+  if (appState === 'case-picker') return <CasePickerPage session={session} onSelectCase={handleSelectCase} />
+  if (appState === 'dashboard') return (
+    <DashboardPage
+      session={session}
+      caseId={selectedCaseId}
+      showBack={allCases.length > 1}
+      onBack={handleBackToPicker}
+    />
+  )
   return null
 }
