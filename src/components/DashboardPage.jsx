@@ -1,5 +1,5 @@
-import { useState, useEffect } from ‘react’
-import { supabase } from ‘../supabase.js’
+import { useState, useEffect } from “react”
+import { supabase } from “../supabase.js”
 
 const STAGES = [
 { id: ‘instruction’, label: ‘Instructed’,     icon: ‘📋’ },
