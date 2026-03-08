@@ -11,7 +11,8 @@ function fmt(dateStr) {
   return d.toLocaleDateString("en-GB", { day: "numeric", month: "short" }) + " " + d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })
 }
 
-export default function MessagesDrawer({ caseId, session, onClose, branchName, brand }) {
+export default function MessagesDrawer({ caseId, session, onClose, branchName, brand, contactRole }) {
+  const role = contactRole || "vendor"
   const [messages, setMessages] = useState([])
   const [draft, setDraft] = useState("")
   const [sending, setSending] = useState(false)
@@ -21,10 +22,16 @@ export default function MessagesDrawer({ caseId, session, onClose, branchName, b
 
   useEffect(function() {
     loadMessages()
-    // Poll for new messages every 15s
-    const interval = setInterval(loadMessages, 15000)
-    return function() { clearInterval(interval) }
-  }, [caseId])
+    const channel = supabase
+      .channel("portal_messages_" + caseId + "_" + role)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "portal_messages", filter: "case_id=eq." + caseId },
+        function(payload) {
+          if (payload.new.thread_type !== role) return
+          setMessages(function(prev) { return [...prev, payload.new] })
+        })
+      .subscribe()
+    return function() { supabase.removeChannel(channel) }
+  }, [caseId, role])
 
   useEffect(function() {
     if (bottomRef.current) bottomRef.current.scrollIntoView({ behavior: "smooth" })
@@ -33,8 +40,9 @@ export default function MessagesDrawer({ caseId, session, onClose, branchName, b
   const loadMessages = async function() {
     const { data, error } = await supabase
       .from("portal_messages")
-      .select("id, sender, staff_name, message, created_at")
+      .select("id, sender, staff_name, message, created_at, thread_type")
       .eq("case_id", String(caseId))
+      .eq("thread_type", role)
       .order("created_at", { ascending: true })
     if (!error && data) setMessages(data)
     setLoading(false)
@@ -46,7 +54,8 @@ export default function MessagesDrawer({ caseId, session, onClose, branchName, b
     setSending(true)
     const { error } = await supabase.from("portal_messages").insert({
       case_id: String(caseId),
-      sender: "client",
+      sender: role,
+      thread_type: role,
       message: text,
     })
     if (!error) {
@@ -57,11 +66,10 @@ export default function MessagesDrawer({ caseId, session, onClose, branchName, b
   }
 
   const handleKeyDown = function(e) {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault()
-      sendMessage()
-    }
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage() }
   }
+
+  const agentName = brand || branchName || "Northwood"
 
   return React.createElement(React.Fragment, null,
     React.createElement("style", null, `
@@ -76,28 +84,20 @@ export default function MessagesDrawer({ caseId, session, onClose, branchName, b
       .msg-textarea { flex: 1; border: 1.5px solid #e5e7eb; border-radius: 10px; padding: 10px 14px; font-size: 14px; font-family: Inter, sans-serif; resize: none; outline: none; line-height: 1.5; max-height: 100px; }
       .msg-textarea:focus { border-color: #818cf8; }
     `),
-
     React.createElement("div", { className: "msg-drawer-overlay", onClick: onClose }),
-
     React.createElement("div", { className: "msg-drawer" },
-
-      // Handle bar
       React.createElement("div", { style: { display: "flex", justifyContent: "center", padding: "12px 0 4px" } },
         React.createElement("div", { style: { width: 36, height: 4, background: "#e5e7eb", borderRadius: 2 } })
       ),
-
-      // Header
       React.createElement("div", { style: { padding: "12px 20px 14px", borderBottom: "1px solid #f1f5f9" } },
         React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between" } },
           React.createElement("div", null,
             React.createElement("div", { style: { fontWeight: 700, fontSize: 16, color: "#0f172a", fontFamily: "Inter, sans-serif" } }, "Ask a question"),
-            React.createElement("div", { style: { fontSize: 12, color: "#6b7280", marginTop: 2 } }, "The " + (brand || "Northwood") + " team will reply as soon as possible")
+            React.createElement("div", { style: { fontSize: 12, color: "#6b7280", marginTop: 2 } }, "The " + agentName + " team will reply as soon as possible")
           ),
           React.createElement("button", { onClick: onClose, style: { background: "#f1f5f9", border: "none", borderRadius: 8, width: 32, height: 32, fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#6b7280" } }, "×")
         )
       ),
-
-      // Messages
       React.createElement("div", { style: { flex: 1, overflowY: "auto", padding: "16px 16px 8px" } },
         loading
           ? React.createElement("div", { style: { textAlign: "center", padding: 32, color: "#9ca3af", fontSize: 14 } }, "Loading messages…")
@@ -109,38 +109,21 @@ export default function MessagesDrawer({ caseId, session, onClose, branchName, b
               )
             : React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 12 } },
                 messages.map(function(msg) {
-                  const isClient = msg.sender === "client"
+                  const isClient = msg.sender !== "staff"
                   return React.createElement("div", { key: msg.id, style: { display: "flex", flexDirection: "column", alignItems: isClient ? "flex-end" : "flex-start" } },
                     !isClient && React.createElement("div", { style: { fontSize: 11, color: "#9ca3af", marginBottom: 3, paddingLeft: 4, fontFamily: "Inter, sans-serif" } },
-                      msg.staff_name || (brand || "Northwood") + " Team"
+                      msg.staff_name || agentName + " Team"
                     ),
-                    React.createElement("div", { className: "msg-bubble-" + msg.sender, style: { padding: "10px 14px", maxWidth: "80%", fontSize: 14, lineHeight: 1.5, fontFamily: "Inter, sans-serif" } },
-                      msg.message
-                    ),
+                    React.createElement("div", { className: "msg-bubble-" + (isClient ? "client" : "staff"), style: { padding: "10px 14px", maxWidth: "80%", fontSize: 14, lineHeight: 1.5, fontFamily: "Inter, sans-serif" } }, msg.message),
                     React.createElement("div", { style: { fontSize: 11, color: "#9ca3af", marginTop: 3, paddingLeft: 4, paddingRight: 4 } }, fmt(msg.created_at))
                   )
                 }),
                 React.createElement("div", { ref: bottomRef })
               )
       ),
-
-      // Input
       React.createElement("div", { style: { padding: "12px 16px 24px", borderTop: "1px solid #f1f5f9", display: "flex", gap: 10, alignItems: "flex-end" } },
-        React.createElement("textarea", {
-          ref: textRef,
-          className: "msg-textarea",
-          placeholder: "Type your question…",
-          value: draft,
-          onChange: function(e) { setDraft(e.target.value) },
-          onKeyDown: handleKeyDown,
-          rows: 2,
-        }),
-        React.createElement("button", {
-          className: "send-btn",
-          onClick: sendMessage,
-          disabled: !draft.trim() || sending,
-          title: "Send message"
-        }, sending ? "…" : "↑")
+        React.createElement("textarea", { ref: textRef, className: "msg-textarea", placeholder: "Type your question…", value: draft, onChange: function(e) { setDraft(e.target.value) }, onKeyDown: handleKeyDown, rows: 2 }),
+        React.createElement("button", { className: "send-btn", onClick: sendMessage, disabled: !draft.trim() || sending }, sending ? "…" : "↑")
       )
     )
   )
