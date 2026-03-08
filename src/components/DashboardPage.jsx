@@ -107,8 +107,8 @@ export default function DashboardPage({ session }) {
       if (result.error || !result.data) throw new Error("Case not found")
       const data = result.data.data
       setCaseData(data)
-      if (data && data.branchId) {
-        const branchResult = await supabase.from("branches").select("name, address, phone, email").eq("id", data.branchId).single()
+      if (data && data.branch_id) {
+        const branchResult = await supabase.from("branches").select("name, address, phone, email").eq("id", data.branch_id).single()
         if (branchResult.data) setBranchData(branchResult.data)
       }
     } catch (err) {
