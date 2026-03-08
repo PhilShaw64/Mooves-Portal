@@ -88,6 +88,7 @@ function getCurrentStageIndex(tasks, caseData) {
 
 export default function DashboardPage({ session }) {
   const [caseData, setCaseData] = useState(null)
+  const [branchData, setBranchData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [activeSection, setActiveSection] = useState("progress")
@@ -104,7 +105,12 @@ export default function DashboardPage({ session }) {
       }
       const result = await supabase.from("cases").select("data").eq("id", caseId).single()
       if (result.error || !result.data) throw new Error("Case not found")
-      setCaseData(result.data.data)
+      const data = result.data.data
+      setCaseData(data)
+      if (data && data.branchId) {
+        const branchResult = await supabase.from("branches").select("name, address, phone, email").eq("id", data.branchId).single()
+        if (branchResult.data) setBranchData(branchResult.data)
+      }
     } catch (err) {
       setError("Unable to load your sale details. Please try refreshing.")
     } finally {
@@ -147,9 +153,10 @@ export default function DashboardPage({ session }) {
   })
   const exchangeDate = exchangeEntry && exchangeEntry[1].date
 
-  const branchName  = (caseData && caseData.branchName)  || (caseData && caseData.agencyName)  || "Northwood"
-  const branchPhone = (caseData && caseData.branchPhone) || (caseData && caseData.agencyPhone) || ""
-  const branchEmail = (caseData && caseData.branchEmail) || (caseData && caseData.agencyEmail) || ""
+  const branchName    = (branchData && branchData.name)    || (caseData && caseData.branchName)  || "Northwood"
+  const branchAddress = (branchData && branchData.address) || ""
+  const branchPhone   = (branchData && branchData.phone)   || (caseData && caseData.branchPhone) || ""
+  const branchEmail   = (branchData && branchData.email)   || (caseData && caseData.branchEmail) || ""
   const vSol = caseData && caseData.vendorSolicitor
 
   const stageStatusFor = function(i) {
@@ -260,7 +267,7 @@ export default function DashboardPage({ session }) {
         ),
 
         activeSection === "contacts" && React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 14 } },
-          React.createElement(ContactCard, { label: "Your Estate Agent", name: branchName, phone: branchPhone, email: branchEmail, icon: "🏢", color: "#0f2952" }),
+          React.createElement(ContactCard, { label: "Your Estate Agent", name: branchName, address: branchAddress, phone: branchPhone, email: branchEmail, icon: "🏢", color: "#0f2952" }),
           vSol && vSol.firm && React.createElement(ContactCard, { label: "Your Solicitor", name: vSol.contact || vSol.firm, firm: vSol.contact ? vSol.firm : null, phone: vSol.phone, email: vSol.email, icon: "⚖️", color: "#0f766e" })
         )
       )
@@ -278,14 +285,15 @@ function DateRow({ label, date, color }) {
   )
 }
 
-function ContactCard({ label, name, firm, phone, email, icon, color }) {
+function ContactCard({ label, name, address, firm, phone, email, icon, color }) {
   return React.createElement("div", { style: { background: "#fff", borderRadius: 14, border: "1px solid #e5e7eb", overflow: "hidden" } },
     React.createElement("div", { style: { background: color, padding: "10px 18px", display: "flex", alignItems: "center", gap: 8 } },
       React.createElement("span", { style: { fontSize: 16 } }, icon),
       React.createElement("span", { style: { fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,0.85)", textTransform: "uppercase", letterSpacing: "0.08em" } }, label)
     ),
     React.createElement("div", { style: { padding: "16px 18px" } },
-      React.createElement("div", { style: { fontWeight: 700, fontSize: 16, color: "#0f172a", marginBottom: firm ? 2 : 10 } }, name),
+      React.createElement("div", { style: { fontWeight: 700, fontSize: 16, color: "#0f172a", marginBottom: 2 } }, name),
+      address && React.createElement("div", { style: { fontSize: 13, color: "#6b7280", marginBottom: firm ? 2 : 12 } }, address),
       firm && React.createElement("div", { style: { fontSize: 13, color: "#6b7280", marginBottom: 12 } }, firm),
       React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } },
         phone && React.createElement("a", { href: "tel:" + phone, style: { display: "flex", alignItems: "center", gap: 8, fontSize: 14, color: "#0f2952", textDecoration: "none", fontWeight: 500 } },
