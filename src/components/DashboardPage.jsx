@@ -222,6 +222,32 @@ export default function DashboardPage({ session, caseId: propCaseId, showBack, o
   })
   const exchangeDate = exchangeEntry && exchangeEntry[1].date
 
+  // Helper: get the latest done date for a set of task key suffixes
+  function getTaskDate(suffix) {
+    const entry = Object.entries(tasks).find(function(e) {
+      return e[0].endsWith("__" + suffix) && e[1] && e[1].done && e[1].date
+    })
+    return entry ? entry[1].date : null
+  }
+
+  // Helper: get latest date across all done tasks in a stage
+  function getStageCompletionDate(stageId) {
+    const entries = Object.entries(tasks).filter(function(e) {
+      return e[0].startsWith(stageId + "__") && e[1] && e[1].done && e[1].date
+    })
+    if (!entries.length) return null
+    return entries.reduce(function(latest, e) {
+      return !latest || e[1].date > latest ? e[1].date : latest
+    }, null)
+  }
+
+  const instructionCompleteDate = getStageStatus(tasks, "instruction") === "complete" ? getStageCompletionDate("instruction") : null
+  const preExchangeCompleteDate = getStageStatus(tasks, "preExchange") === "complete" ? getStageCompletionDate("preExchange") : null
+  const searchesDate            = getTaskDate("Searches Received")
+  const mortgageOfferDate       = getTaskDate("Mortgage Offer Received")
+  const enquiriesRaisedDate     = getTaskDate("Raise Enquiries")
+  const enquiriesAnsweredDate   = getTaskDate("Enquiries Resolved")
+
   const branchName    = (branchData && branchData.name)    || (caseData && caseData.branchName)  || "Northwood"
   const brand         = getBrand(branchName)
   const brandAndBranch = branchName === brand ? branchName : (brand + " — " + branchName)
@@ -361,10 +387,16 @@ export default function DashboardPage({ session, caseId: propCaseId, showBack, o
             })
           ),
 
-          ((caseData && caseData.instructionDate) || exchangeDate || confirmedDate) && React.createElement("div", { style: { background: "#fff", borderRadius: 14, border: "1px solid #e5e7eb", padding: 20, marginBottom: 20 } },
+          ((caseData && caseData.instructionDate) || instructionCompleteDate || searchesDate || mortgageOfferDate || enquiriesRaisedDate || enquiriesAnsweredDate || preExchangeCompleteDate || exchangeDate || confirmedDate) && React.createElement("div", { style: { background: "#fff", borderRadius: 14, border: "1px solid #e5e7eb", padding: 20, marginBottom: 20 } },
             React.createElement("div", { style: { fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#6b7280", marginBottom: 14 } }, "Key Dates"),
             React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 10 } },
               caseData && caseData.instructionDate && React.createElement(DateRow, { label: "Instructed", date: caseData.instructionDate, color: "#f59e0b" }),
+              instructionCompleteDate && React.createElement(DateRow, { label: "Onboarding complete", date: instructionCompleteDate, color: "#10b981" }),
+              searchesDate && React.createElement(DateRow, { label: "Searches back", date: searchesDate, color: "#38bdf8" }),
+              mortgageOfferDate && React.createElement(DateRow, { label: "Mortgage offer received", date: mortgageOfferDate, color: "#8b5cf6" }),
+              enquiriesRaisedDate && React.createElement(DateRow, { label: "Enquiries raised", date: enquiriesRaisedDate, color: "#f97316" }),
+              enquiriesAnsweredDate && React.createElement(DateRow, { label: "Enquiries answered", date: enquiriesAnsweredDate, color: "#06b6d4" }),
+              preExchangeCompleteDate && React.createElement(DateRow, { label: "Legal stage complete", date: preExchangeCompleteDate, color: "#10b981" }),
               exchangeDate && React.createElement(DateRow, { label: "Exchanged", date: exchangeDate, color: "#38bdf8" }),
               confirmedDate && React.createElement(DateRow, { label: isCompleted ? "Completed" : "Completion date", date: confirmedDate, color: isCompleted ? "#22c55e" : "#6366f1" })
             )
