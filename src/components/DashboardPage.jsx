@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react"
 import React from "react"
 import { supabase } from "../supabase.js"
+import MessagesDrawer from "./MessagesDrawer.jsx"
 
 const STAGES = [
   { id: "instruction", label: "Instructed",    icon: "📋" },
@@ -113,6 +114,7 @@ export default function DashboardPage({ session, caseId: propCaseId, showBack, o
   const [error, setError] = useState("")
   const [activeSection, setActiveSection] = useState("progress")
   const [showPicker, setShowPicker] = useState(false)
+  const [showMessages, setShowMessages] = useState(false)
 
   useEffect(function() { loadAllCases() }, [session])
 
@@ -350,6 +352,14 @@ export default function DashboardPage({ session, caseId: propCaseId, showBack, o
             confirmedDate && React.createElement("div", { style: { fontFamily: "Inter, sans-serif", fontSize: 12, color: "rgba(255,255,255,0.35)", marginTop: 10 } },
               (isCompleted ? "Completed on " : "Target completion: ") + fmt(confirmedDate)
             )
+          ),
+
+          React.createElement("button", {
+            onClick: function() { setShowMessages(true) },
+            style: { marginTop: 14, width: "100%", background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 12, padding: "12px 20px", color: "rgba(255,255,255,0.85)", fontSize: 14, fontWeight: 600, fontFamily: "Inter, sans-serif", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }
+          },
+            React.createElement("span", { style: { fontSize: 16 } }, "\ud83d\udcac"),
+            React.createElement("span", null, "Ask your estate agent a question")
           )
 
         )
@@ -435,7 +445,15 @@ export default function DashboardPage({ session, caseId: propCaseId, showBack, o
           React.createElement(ContactCard, { label: "Your Estate Agent", name: brand, firm: branchName === brand ? null : branchName, address: branchAddress, phone: branchPhone, email: branchEmail, icon: "🏢", color: "#0f2952" }),
           vSol && vSol.firm && React.createElement(ContactCard, { label: "Your Solicitor", name: vSol.contact || vSol.firm, firm: vSol.contact ? vSol.firm : null, phone: vSol.phone, email: vSol.email, icon: "⚖️", color: "#0f766e" })
         )
-      )
+      ),
+
+      showMessages && React.createElement(MessagesDrawer, {
+        caseId: selectedCaseId,
+        session: session,
+        onClose: function() { setShowMessages(false) },
+        brand: brand,
+        branchName: branchName
+      })
     )
   )
 }
