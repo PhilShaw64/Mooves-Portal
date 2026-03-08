@@ -81,7 +81,7 @@ export default function MessagesDrawer({ caseId, session, onClose, branchName, b
       .msg-bubble-staff { background: #f1f5f9; color: #0f172a; border-radius: 16px 16px 16px 4px; }
       .send-btn { background: #0f2952; color: #fff; border: none; border-radius: 10px; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; font-size: 18px; transition: opacity 0.15s; }
       .send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-      .msg-textarea { flex: 1; border: 1.5px solid #e5e7eb; border-radius: 10px; padding: 10px 14px; font-size: 14px; font-family: Inter, sans-serif; resize: none; outline: none; line-height: 1.5; max-height: 100px; }
+      .msg-textarea { flex: 1; border: 1.5px solid #e5e7eb; border-radius: 10px; padding: 10px 14px; font-size: 16px; font-family: Inter, sans-serif; resize: none; outline: none; line-height: 1.5; max-height: 100px; }
       .msg-textarea:focus { border-color: #818cf8; }
     `),
     React.createElement("div", { className: "msg-drawer-overlay", onClick: onClose }),
