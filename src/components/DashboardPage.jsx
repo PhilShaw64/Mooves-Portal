@@ -73,9 +73,6 @@ function getBrand(branchName) {
   return "Northwood"
 }
 
-// Keys in tasks are: stageId__role__Task Name
-// e.g. "instruction__vendor__ID to Solicitor"
-// We search for any key matching stageId__*__taskName regardless of role
 function getTaskDone(tasks, stageId, taskName) {
   if (!tasks) return { done: false, date: null }
   const prefix = stageId + "__"
@@ -105,10 +102,21 @@ function getCurrentStageIndex(tasks, caseData) {
   return STAGES.length - 1
 }
 
+// Determine if the logged-in email matches vendor or buyer on a case
+function detectContactRole(caseData, userEmail) {
+  if (!caseData || !userEmail) return "vendor"
+  const email = userEmail.toLowerCase()
+  const vendorEmail = (caseData.vendor && caseData.vendor.email) || caseData.vendorEmail || ""
+  const buyerEmail  = (caseData.buyer  && caseData.buyer.email)  || (caseData.purchaser && caseData.purchaser.email) || caseData.buyerEmail || ""
+  if (buyerEmail && buyerEmail.toLowerCase() === email) return "buyer"
+  return "vendor" // default — vendor is primary contact
+}
+
 export default function DashboardPage({ session, caseId: propCaseId, showBack, onBack }) {
   const [allCases, setAllCases] = useState([])
   const [selectedCaseId, setSelectedCaseId] = useState(null)
   const [caseData, setCaseData] = useState(null)
+  const [contactRole, setContactRole] = useState("vendor") // "vendor" | "buyer"
   const [branchData, setBranchData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
@@ -123,15 +131,20 @@ export default function DashboardPage({ session, caseId: propCaseId, showBack, o
       const userEmail = session.user.email
       const metaCaseId = session.user.user_metadata && session.user.user_metadata.case_id
 
-      // Find all cases where vendor email matches the logged-in user
-      const result = await supabase
-        .from("cases")
-        .select("id, data")
-        .filter("data->vendor->>email", "eq", userEmail)
+      // Search both vendor and buyer email fields
+      const [vendorResult, buyerResult] = await Promise.all([
+        supabase.from("cases").select("id, data").filter("data->vendor->>email", "eq", userEmail),
+        supabase.from("cases").select("id, data").filter("data->buyer->>email",  "eq", userEmail),
+      ])
 
-      // Fallback: also include the case from user_metadata if present
-      let cases = (result.data || []).map(function(r) { return { id: r.id, data: r.data } })
+      // Merge, deduplicate by id
+      const seen = new Set()
+      let cases = []
+      for (const row of [...(vendorResult.data || []), ...(buyerResult.data || [])]) {
+        if (!seen.has(row.id)) { seen.add(row.id); cases.push({ id: row.id, data: row.data }) }
+      }
 
+      // Fallback: case from user_metadata
       if (metaCaseId && !cases.find(function(c) { return String(c.id) === String(metaCaseId) })) {
         const fallback = await supabase.from("cases").select("id, data").eq("id", metaCaseId).single()
         if (fallback.data) cases = [{ id: fallback.data.id, data: fallback.data.data }].concat(cases)
@@ -166,7 +179,9 @@ export default function DashboardPage({ session, caseId: propCaseId, showBack, o
         if (result.error || !result.data) throw new Error("Case not found")
         cData = result.data.data
       }
+      const role = detectContactRole(cData, session.user.email)
       setCaseData(cData)
+      setContactRole(role)
       setSelectedCaseId(id)
       setShowPicker(false)
       if (cData && cData.branch_id) {
@@ -189,6 +204,7 @@ export default function DashboardPage({ session, caseId: propCaseId, showBack, o
     setCaseData(null)
     setBranchData(null)
     setSelectedCaseId(null)
+    setContactRole("vendor")
     setShowPicker(true)
   }
 
@@ -224,7 +240,6 @@ export default function DashboardPage({ session, caseId: propCaseId, showBack, o
   })
   const exchangeDate = exchangeEntry && exchangeEntry[1].date
 
-  // Helper: get the latest done date for a set of task key suffixes
   function getTaskDate(suffix) {
     const entry = Object.entries(tasks).find(function(e) {
       return e[0].endsWith("__" + suffix) && e[1] && e[1].done && e[1].date
@@ -232,7 +247,6 @@ export default function DashboardPage({ session, caseId: propCaseId, showBack, o
     return entry ? entry[1].date : null
   }
 
-  // Helper: get latest date across all done tasks in a stage
   function getStageCompletionDate(stageId) {
     const entries = Object.entries(tasks).filter(function(e) {
       return e[0].startsWith(stageId + "__") && e[1] && e[1].done && e[1].date
@@ -310,9 +324,9 @@ export default function DashboardPage({ session, caseId: propCaseId, showBack, o
                 React.createElement("span", null, "My Sales")
               ),
               React.createElement("div", { style: { display: "flex", gap: 8 } },
-              showBack && React.createElement("button", { onClick: onBack, style: { background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8, padding: "6px 14px", color: "rgba(255,255,255,0.6)", fontSize: 11, fontFamily: "Inter, sans-serif", fontWeight: 500, cursor: "pointer" } }, "← My Sales"),
-              React.createElement("button", { onClick: handleSignOut, style: { background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8, padding: "6px 14px", color: "rgba(255,255,255,0.5)", fontSize: 11, fontFamily: "Inter, sans-serif", fontWeight: 500, cursor: "pointer" } }, "Sign out")
-            )
+                showBack && React.createElement("button", { onClick: onBack, style: { background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8, padding: "6px 14px", color: "rgba(255,255,255,0.6)", fontSize: 11, fontFamily: "Inter, sans-serif", fontWeight: 500, cursor: "pointer" } }, "← My Sales"),
+                React.createElement("button", { onClick: handleSignOut, style: { background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8, padding: "6px 14px", color: "rgba(255,255,255,0.5)", fontSize: 11, fontFamily: "Inter, sans-serif", fontWeight: 500, cursor: "pointer" } }, "Sign out")
+              )
             )
           ),
 
@@ -361,7 +375,6 @@ export default function DashboardPage({ session, caseId: propCaseId, showBack, o
             React.createElement("span", { style: { fontSize: 16 } }, "\ud83d\udcac"),
             React.createElement("span", null, "Ask your estate agent a question")
           )
-
         )
       ),
 
@@ -371,13 +384,7 @@ export default function DashboardPage({ session, caseId: propCaseId, showBack, o
             return React.createElement("button", {
               key: tab.id,
               onClick: function() { setActiveSection(tab.id) },
-              style: {
-                flex: 1, padding: "14px 16px", border: "none", background: "none", cursor: "pointer",
-                fontSize: 14, fontWeight: 600,
-                color: activeSection === tab.id ? "#0f2952" : "#9ca3af",
-                borderBottom: "2px solid " + (activeSection === tab.id ? "#0f2952" : "transparent"),
-                transition: "all 0.15s",
-              }
+              style: { flex: 1, padding: "14px 16px", border: "none", background: "none", cursor: "pointer", fontSize: 14, fontWeight: 600, color: activeSection === tab.id ? "#0f2952" : "#9ca3af", borderBottom: "2px solid " + (activeSection === tab.id ? "#0f2952" : "transparent"), transition: "all 0.15s" }
             }, tab.label)
           })
         )
@@ -452,7 +459,8 @@ export default function DashboardPage({ session, caseId: propCaseId, showBack, o
         session: session,
         onClose: function() { setShowMessages(false) },
         brand: brand,
-        branchName: branchName
+        branchName: branchName,
+        contactRole: contactRole,
       })
     )
   )
