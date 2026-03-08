@@ -66,6 +66,12 @@ function getFirstName(fullName) {
   return fullName.trim().split(" ")[0]
 }
 
+function getBrand(branchName) {
+  if (!branchName) return "Northwood"
+  if (branchName === "UrbanBase" || branchName === "Urban Base" || branchName === "New Homes") return "Urban Base"
+  return "Northwood"
+}
+
 // Keys in tasks are: stageId__role__Task Name
 // e.g. "instruction__vendor__ID to Solicitor"
 // We search for any key matching stageId__*__taskName regardless of role
@@ -217,6 +223,8 @@ export default function DashboardPage({ session, caseId: propCaseId, showBack, o
   const exchangeDate = exchangeEntry && exchangeEntry[1].date
 
   const branchName    = (branchData && branchData.name)    || (caseData && caseData.branchName)  || "Northwood"
+  const brand         = getBrand(branchName)
+  const brandAndBranch = branchName === brand ? branchName : (brand + " — " + branchName)
   const branchAddress = (branchData && branchData.address) || ""
   const branchPhone   = (branchData && branchData.phone)   || (caseData && caseData.branchPhone) || ""
   const branchEmail   = (branchData && branchData.email)   || (caseData && caseData.branchEmail) || ""
@@ -264,7 +272,7 @@ export default function DashboardPage({ session, caseId: propCaseId, showBack, o
             React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 9 } },
               React.createElement("div", { style: { width: 30, height: 30, background: "#0F766E", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 14, color: "#fff", flexShrink: 0 } }, "M"),
               React.createElement("div", null,
-                React.createElement("div", { style: { fontFamily: "Inter, sans-serif", fontWeight: 700, fontSize: 13, color: "rgba(255,255,255,0.9)", lineHeight: 1.1 } }, branchName),
+                React.createElement("div", { style: { fontFamily: "Inter, sans-serif", fontWeight: 700, fontSize: 13, color: "rgba(255,255,255,0.9)", lineHeight: 1.1 } }, brand),
                 React.createElement("div", { style: { fontFamily: "Inter, sans-serif", fontWeight: 400, fontSize: 10, color: "rgba(255,255,255,0.4)", marginTop: 2, letterSpacing: "0.05em", textTransform: "uppercase" } }, "Sale Tracker")
               )
             ),
@@ -291,7 +299,7 @@ export default function DashboardPage({ session, caseId: propCaseId, showBack, o
               address || "Your Property"
             ),
             React.createElement("div", { style: { fontFamily: "Inter, sans-serif", fontSize: 13, color: "rgba(255,255,255,0.4)", fontWeight: 400, lineHeight: 1.5 } },
-              "Your sale is being managed by " + branchName + ". Track every step below."
+              "Your sale is being managed by " + brandAndBranch + ". Track every step below."
             )
           ),
 
@@ -392,7 +400,7 @@ export default function DashboardPage({ session, caseId: propCaseId, showBack, o
         ),
 
         activeSection === "contacts" && React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 14 } },
-          React.createElement(ContactCard, { label: "Your Estate Agent", name: branchName, address: branchAddress, phone: branchPhone, email: branchEmail, icon: "🏢", color: "#0f2952" }),
+          React.createElement(ContactCard, { label: "Your Estate Agent", name: brand, firm: branchName === brand ? null : branchName, address: branchAddress, phone: branchPhone, email: branchEmail, icon: "🏢", color: "#0f2952" }),
           vSol && vSol.firm && React.createElement(ContactCard, { label: "Your Solicitor", name: vSol.contact || vSol.firm, firm: vSol.contact ? vSol.firm : null, phone: vSol.phone, email: vSol.email, icon: "⚖️", color: "#0f766e" })
         )
       )
