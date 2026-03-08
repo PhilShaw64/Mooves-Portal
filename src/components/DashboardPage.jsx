@@ -98,33 +98,75 @@ function getCurrentStageIndex(tasks, caseData) {
   return STAGES.length - 1
 }
 
-export default function DashboardPage({ session }) {
+export default function DashboardPage({ session, caseId: propCaseId, showBack, onBack }) {
+  const [allCases, setAllCases] = useState([])
+  const [selectedCaseId, setSelectedCaseId] = useState(null)
   const [caseData, setCaseData] = useState(null)
   const [branchData, setBranchData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [activeSection, setActiveSection] = useState("progress")
+  const [showPicker, setShowPicker] = useState(false)
 
-  useEffect(function() { loadCaseData() }, [session])
+  useEffect(function() { loadAllCases() }, [session])
 
-  const loadCaseData = async function() {
+  const loadAllCases = async function() {
     try {
-      const caseId = session.user.user_metadata && session.user.user_metadata.case_id
-      if (!caseId) {
-        setError("No case linked to your account. Please contact your agent.")
+      const userEmail = session.user.email
+      const metaCaseId = session.user.user_metadata && session.user.user_metadata.case_id
+
+      // Find all cases where vendor email matches the logged-in user
+      const result = await supabase
+        .from("cases")
+        .select("id, data")
+        .filter("data->vendor->>email", "eq", userEmail)
+
+      // Fallback: also include the case from user_metadata if present
+      let cases = (result.data || []).map(function(r) { return { id: r.id, data: r.data } })
+
+      if (metaCaseId && !cases.find(function(c) { return String(c.id) === String(metaCaseId) })) {
+        const fallback = await supabase.from("cases").select("id, data").eq("id", metaCaseId).single()
+        if (fallback.data) cases = [{ id: fallback.data.id, data: fallback.data.data }].concat(cases)
+      }
+
+      if (cases.length === 0) {
+        setError("No cases linked to your account. Please contact your agent.")
         setLoading(false)
         return
       }
-      const result = await supabase.from("cases").select("data").eq("id", caseId).single()
-      if (result.error || !result.data) throw new Error("Case not found")
-      const data = result.data.data
-      setCaseData(data)
-      if (data && data.branch_id) {
-        const branchResult = await supabase.from("branches").select("name, address, phone, email").eq("id", data.branch_id).single()
-        if (branchResult.data) setBranchData(branchResult.data)
+
+      setAllCases(cases)
+
+      if (cases.length === 1) {
+        await loadCaseById(cases[0].id, cases[0].data)
+      } else {
+        setShowPicker(true)
+        setLoading(false)
       }
     } catch (err) {
       setError("Unable to load your sale details. Please try refreshing.")
+      setLoading(false)
+    }
+  }
+
+  const loadCaseById = async function(id, data) {
+    setLoading(true)
+    try {
+      let cData = data
+      if (!cData) {
+        const result = await supabase.from("cases").select("data").eq("id", id).single()
+        if (result.error || !result.data) throw new Error("Case not found")
+        cData = result.data.data
+      }
+      setCaseData(cData)
+      setSelectedCaseId(id)
+      setShowPicker(false)
+      if (cData && cData.branch_id) {
+        const branchResult = await supabase.from("branches").select("name, address, phone, email").eq("id", cData.branch_id).single()
+        if (branchResult.data) setBranchData(branchResult.data)
+      }
+    } catch (err) {
+      setError("Unable to load case details. Please try refreshing.")
     } finally {
       setLoading(false)
     }
@@ -135,18 +177,25 @@ export default function DashboardPage({ session }) {
     window.location.reload()
   }
 
+  const handleBackToPicker = function() {
+    setCaseData(null)
+    setBranchData(null)
+    setSelectedCaseId(null)
+    setShowPicker(true)
+  }
+
   if (loading) return (
-    React.createElement("div", { style: { minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" } },
+    React.createElement("div", { style: { minHeight: "100vh", background: "#f3f4f6", display: "flex", alignItems: "center", justifyContent: "center" } },
       React.createElement("div", { style: { textAlign: "center" } },
+        React.createElement("style", null, "@keyframes spin { to { transform: rotate(360deg); } }"),
         React.createElement("div", { style: { width: 40, height: 40, borderRadius: "50%", border: "3px solid #e5e7eb", borderTopColor: "#0f2952", animation: "spin 0.8s linear infinite", margin: "0 auto 12px" } }),
-        React.createElement("div", { style: { fontSize: 14, color: "#9ca3af" } }, "Loading your sale…"),
-        React.createElement("style", null, "@keyframes spin { to { transform: rotate(360deg); } }")
+        React.createElement("div", { style: { fontSize: 14, color: "#9ca3af", fontFamily: "Inter, sans-serif" } }, "Loading your sale…")
       )
     )
   )
 
   if (error) return (
-    React.createElement("div", { style: { minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 } },
+    React.createElement("div", { style: { minHeight: "100vh", background: "#f3f4f6", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 } },
       React.createElement("div", { style: { textAlign: "center", maxWidth: 360 } },
         React.createElement("div", { style: { fontSize: 40, marginBottom: 12 } }, "⚠️"),
         React.createElement("div", { style: { fontFamily: "DM Serif Display, serif", fontSize: 22, color: "#0f172a", marginBottom: 8 } }, "Something went wrong"),
@@ -154,6 +203,8 @@ export default function DashboardPage({ session }) {
       )
     )
   )
+
+  if (showPicker) return React.createElement(CasePicker, { cases: allCases, onSelect: loadCaseById, onSignOut: handleSignOut, session: session })
 
   const tasks = (caseData && caseData.tasks) || {}
   const address = (caseData && caseData.address) || [caseData && caseData.addressLine1, caseData && caseData.town, caseData && caseData.postcode].filter(Boolean).join(", ")
@@ -217,7 +268,16 @@ export default function DashboardPage({ session }) {
                 React.createElement("div", { style: { fontFamily: "Inter, sans-serif", fontWeight: 400, fontSize: 10, color: "rgba(255,255,255,0.4)", marginTop: 2, letterSpacing: "0.05em", textTransform: "uppercase" } }, "Sale Tracker")
               )
             ),
-            React.createElement("button", { onClick: handleSignOut, style: { background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8, padding: "6px 14px", color: "rgba(255,255,255,0.5)", fontSize: 11, fontFamily: "Inter, sans-serif", fontWeight: 500, cursor: "pointer", flexShrink: 0 } }, "Sign out")
+            React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8 } },
+              allCases.length > 1 && React.createElement("button", { onClick: handleBackToPicker, style: { background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8, padding: "6px 12px", color: "rgba(255,255,255,0.6)", fontSize: 11, fontFamily: "Inter, sans-serif", fontWeight: 500, cursor: "pointer", display: "flex", alignItems: "center", gap: 5 } },
+                React.createElement("span", null, "←"),
+                React.createElement("span", null, "My Sales")
+              ),
+              React.createElement("div", { style: { display: "flex", gap: 8 } },
+              showBack && React.createElement("button", { onClick: onBack, style: { background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8, padding: "6px 14px", color: "rgba(255,255,255,0.6)", fontSize: 11, fontFamily: "Inter, sans-serif", fontWeight: 500, cursor: "pointer" } }, "← My Sales"),
+              React.createElement("button", { onClick: handleSignOut, style: { background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8, padding: "6px 14px", color: "rgba(255,255,255,0.5)", fontSize: 11, fontFamily: "Inter, sans-serif", fontWeight: 500, cursor: "pointer" } }, "Sign out")
+            )
+            )
           ),
 
           React.createElement("div", { style: { marginBottom: 24 } },
@@ -370,6 +430,103 @@ function ContactCard({ label, name, address, firm, phone, email, icon, color }) 
           email
         )
       )
+    )
+  )
+}
+
+function CasePicker({ cases, onSelect, onSignOut, session }) {
+  const greeting = getGreeting()
+  const userEmail = session && session.user && session.user.email
+  const firstName = getFirstName(
+    cases[0] && cases[0].data && cases[0].data.vendor && cases[0].data.vendor.name || ""
+  )
+
+  return React.createElement("div", { style: { minHeight: "100vh", background: "#f3f4f6", fontFamily: "Inter, -apple-system, sans-serif" } },
+
+    React.createElement("style", null, `
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=DM+Serif+Display:ital@0;1&display=swap');
+      .case-card { transition: transform 0.15s, box-shadow 0.15s; cursor: pointer; }
+      .case-card:active { transform: scale(0.98); }
+    `),
+
+    React.createElement("div", { style: { background: "linear-gradient(150deg, #071527 0%, #0d2044 45%, #0f2952 100%)", padding: "24px 20px 32px", position: "relative", overflow: "hidden" } },
+      React.createElement("div", { style: { position: "absolute", top: -60, right: -60, width: 220, height: 220, background: "radial-gradient(circle, rgba(79,70,229,0.18) 0%, transparent 65%)", pointerEvents: "none" } }),
+
+      React.createElement("div", { style: { maxWidth: 600, margin: "0 auto", position: "relative", zIndex: 1 } },
+        React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 28 } },
+          React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 9 } },
+            React.createElement("div", { style: { width: 30, height: 30, background: "#0F766E", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 14, color: "#fff" } }, "M"),
+            React.createElement("div", null,
+              React.createElement("div", { style: { fontWeight: 700, fontSize: 13, color: "rgba(255,255,255,0.9)", lineHeight: 1.1 } }, "Mooves"),
+              React.createElement("div", { style: { fontSize: 10, color: "rgba(255,255,255,0.4)", marginTop: 2, letterSpacing: "0.05em", textTransform: "uppercase" } }, "Sale Tracker")
+            )
+          ),
+          React.createElement("button", { onClick: onSignOut, style: { background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8, padding: "6px 14px", color: "rgba(255,255,255,0.5)", fontSize: 11, fontWeight: 500, cursor: "pointer" } }, "Sign out")
+        ),
+
+        React.createElement("div", { style: { display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 20, padding: "5px 12px 5px 9px", marginBottom: 14 } },
+          React.createElement("span", { style: { fontSize: 14 } }, "👋"),
+          React.createElement("span", { style: { fontSize: 12, fontWeight: 500, color: "rgba(255,255,255,0.65)" } }, greeting + (firstName ? (", " + firstName) : ""))
+        ),
+        React.createElement("div", { style: { fontFamily: "DM Serif Display, serif", fontSize: 26, color: "#fff", lineHeight: 1.2, marginBottom: 6 } }, "Your Sales"),
+        React.createElement("div", { style: { fontSize: 13, color: "rgba(255,255,255,0.4)", lineHeight: 1.5 } },
+          "You have " + cases.length + " active " + (cases.length === 1 ? "sale" : "sales") + ". Select one to view its progress."
+        )
+      )
+    ),
+
+    React.createElement("div", { style: { maxWidth: 600, margin: "0 auto", padding: "24px 16px" } },
+      cases.map(function(c) {
+        const data = c.data || {}
+        const tasks = data.tasks || {}
+        const address = data.address || [data.addressLine1, data.town, data.postcode].filter(Boolean).join(", ") || "Unknown address"
+        const isCompleted = data.completed
+        const stageIdx = getCurrentStageIndex(tasks, data)
+        const stageLabel = isCompleted ? "Completed" : (STAGES[stageIdx] && STAGES[stageIdx].label) || "In Progress"
+        const stageIcon = isCompleted ? "✅" : (STAGES[stageIdx] && STAGES[stageIdx].icon) || "📋"
+        const isVendor = data.vendor && data.vendor.email && userEmail && data.vendor.email.toLowerCase() === userEmail.toLowerCase()
+        const role = isVendor ? "Sale" : "Purchase"
+
+        const pipStatuses = STAGES.map(function(stage, i) {
+          if (isCompleted) return "complete"
+          if (i < stageIdx) return "complete"
+          if (i === stageIdx) return "active"
+          return "pending"
+        })
+
+        return React.createElement("div", {
+          key: c.id,
+          className: "case-card",
+          onClick: function() { onSelect(c.id, c.data) },
+          style: { background: "#fff", borderRadius: 16, border: "1.5px solid #e5e7eb", marginBottom: 14, overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }
+        },
+          React.createElement("div", { style: { padding: "16px 18px 12px" } },
+            React.createElement("div", { style: { display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 12 } },
+              React.createElement("div", { style: { flex: 1, marginRight: 12 } },
+                React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 4 } },
+                  React.createElement("span", { style: { fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", color: isVendor ? "#0F766E" : "#4338ca", background: isVendor ? "#f0fdf4" : "#eef2ff", borderRadius: 4, padding: "2px 6px" } }, role)
+                ),
+                React.createElement("div", { style: { fontFamily: "DM Serif Display, serif", fontSize: 18, color: "#0f172a", lineHeight: 1.3 } }, address)
+              ),
+              React.createElement("div", { style: { fontSize: 22, flexShrink: 0 } }, stageIcon)
+            ),
+
+            React.createElement("div", { style: { display: "flex", gap: 3, marginBottom: 10 } },
+              pipStatuses.map(function(s, i) {
+                return React.createElement("div", { key: i, style: { flex: 1, height: 4, borderRadius: 2, background: s === "complete" ? "#22c55e" : s === "active" ? "#818cf8" : "#e5e7eb", boxShadow: s === "active" ? "0 0 6px rgba(129,140,248,0.5)" : "none" } })
+              })
+            ),
+
+            React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between" } },
+              React.createElement("div", { style: { display: "inline-flex", alignItems: "center", gap: 5, background: isCompleted ? "#f0fdf4" : "#eef2ff", borderRadius: 20, padding: "3px 10px", border: "1px solid " + (isCompleted ? "#86efac" : "#a5b4fc") } },
+                React.createElement("div", { style: { width: 6, height: 6, borderRadius: "50%", background: isCompleted ? "#22c55e" : "#818cf8" } }),
+                React.createElement("span", { style: { fontSize: 11, fontWeight: 600, color: isCompleted ? "#15803d" : "#4338ca" } }, stageLabel)
+              ),
+              React.createElement("span", { style: { fontSize: 12, color: "#9ca3af", fontWeight: 500 } }, "View details →")
+            )
+          )
+        )
+      })
     )
   )
 }
