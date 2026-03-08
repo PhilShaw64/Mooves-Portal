@@ -54,15 +54,17 @@ function fmt(dateStr) {
   return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })
 }
 
+// Keys in tasks are: stageId__role__Task Name
+// e.g. "instruction__vendor__ID to Solicitor"
+// We search for any key matching stageId__*__taskName regardless of role
 function getTaskDone(tasks, stageId, taskName) {
   if (!tasks) return { done: false, date: null }
-  const normalisedTask = taskName.replace(/ /g, "*")
-  const key = stageId + "**" + normalisedTask
-  if (tasks[key]) return { done: tasks[key].done || false, date: tasks[key].date || null }
-  const fallback = Object.keys(tasks).find(function(k) {
-    return k.startsWith(stageId + "**") && k.replace(/ /g, "*").endsWith("__" + normalisedTask)
+  const prefix = stageId + "__"
+  const suffix = "__" + taskName
+  const match = Object.keys(tasks).find(function(k) {
+    return k.startsWith(prefix) && k.endsWith(suffix)
   })
-  if (fallback) return { done: tasks[fallback].done || false, date: tasks[fallback].date || null }
+  if (match) return { done: tasks[match].done || false, date: tasks[match].date || null }
   return { done: false, date: null }
 }
 
@@ -141,7 +143,7 @@ export default function DashboardPage({ session }) {
   const isCompleted = caseData && caseData.completed
   const confirmedDate = caseData && caseData.confirmedCompletionDate
   const exchangeEntry = Object.entries(tasks).find(function(entry) {
-    return (entry[0].includes("Contracts_Exchanged") || entry[0].includes("Contracts Exchanged")) && entry[1] && entry[1].done && entry[1].date
+    return entry[0].endsWith("__Contracts Exchanged") && entry[1] && entry[1].done && entry[1].date
   })
   const exchangeDate = exchangeEntry && exchangeEntry[1].date
 
