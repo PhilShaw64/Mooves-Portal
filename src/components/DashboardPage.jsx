@@ -210,6 +210,29 @@ export default function DashboardPage({ session, caseId: propCaseId, showBack, o
     setShowPicker(true)
   }
 
+  const markStaffMessagesRead = async function(caseId, role) {
+    if (!caseId || !role) return
+    try {
+      const { data: { session: s } } = await supabase.auth.getSession()
+      const token = (s && s.access_token) || ""
+      const SUPABASE_URL = "https://tqspuxqjavhhqmhmbaen.supabase.co"
+      const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxc3B1eHFqYXZoaHFtaG1iYWVuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI0NDczMjMsImV4cCI6MjA4ODAyMzMyM30.5TCQjAM2WK_wvKXZy5wXGAtPTlI1yKUj5gyjce3tVVg"
+      await fetch(
+        SUPABASE_URL + "/rest/v1/portal_messages?case_id=eq." + encodeURIComponent(String(caseId)) + "&thread_type=eq." + role + "&sender=eq.staff&read_at=is.null",
+        {
+          method: "PATCH",
+          headers: {
+            "apikey": SUPABASE_KEY,
+            "Authorization": "Bearer " + (token || SUPABASE_KEY),
+            "Content-Type": "application/json",
+            "Prefer": "return=minimal",
+          },
+          body: JSON.stringify({ read_at: new Date().toISOString() }),
+        }
+      )
+    } catch(e) { /* silent */ }
+  }
+
   const fetchUnreadCount = async function(caseId, role) {
     if (!caseId || !role) return
     try {
@@ -355,14 +378,7 @@ export default function DashboardPage({ session, caseId: propCaseId, showBack, o
                   onClick: function() {
                   setShowMessages(true)
                   setUnreadCount(0)
-                  if (selectedCaseId && contactRole) {
-                    supabase.from("portal_messages")
-                      .update({ read_at: new Date().toISOString() })
-                      .eq("case_id", String(selectedCaseId))
-                      .eq("thread_type", contactRole)
-                      .eq("sender", "staff")
-                      .is("read_at", null)
-                  }
+                  markStaffMessagesRead(selectedCaseId, contactRole)
                 },
                   style: { background: unreadCount > 0 ? "rgba(99,102,241,0.25)" : "rgba(255,255,255,0.07)", border: "1px solid " + (unreadCount > 0 ? "rgba(99,102,241,0.5)" : "rgba(255,255,255,0.12)"), borderRadius: 8, width: 34, height: 34, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 16, transition: "all 0.2s" }
                 }, "💬"),
@@ -417,14 +433,7 @@ export default function DashboardPage({ session, caseId: propCaseId, showBack, o
             onClick: function() {
                   setShowMessages(true)
                   setUnreadCount(0)
-                  if (selectedCaseId && contactRole) {
-                    supabase.from("portal_messages")
-                      .update({ read_at: new Date().toISOString() })
-                      .eq("case_id", String(selectedCaseId))
-                      .eq("thread_type", contactRole)
-                      .eq("sender", "staff")
-                      .is("read_at", null)
-                  }
+                  markStaffMessagesRead(selectedCaseId, contactRole)
                 },
             style: { marginTop: 14, width: "100%", background: unreadCount > 0 ? "rgba(99,102,241,0.2)" : "rgba(255,255,255,0.08)", border: "1px solid " + (unreadCount > 0 ? "rgba(99,102,241,0.4)" : "rgba(255,255,255,0.15)"), borderRadius: 12, padding: "12px 20px", color: "rgba(255,255,255,0.85)", fontSize: 14, fontWeight: 600, fontFamily: "Inter, sans-serif", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }
           },
