@@ -171,6 +171,58 @@ export default function DashboardPage({ session, caseId: propCaseId, showBack, o
     }
   }
 
+
+  const notifyPortalSignup = async function(caseId, role, cData) {
+    // localStorage fast-path — skip if already fired this session
+    const flagKey = "portal_signup_notified_" + session.user.id + "_" + caseId
+    if (localStorage.getItem(flagKey)) return
+    try {
+      const clientName =
+        role === "vendor"
+          ? [(cData.vendor && cData.vendor.name), (cData.vendor2 && cData.vendor2.name)].filter(Boolean).join(" & ") || "Vendor"
+          : [(cData.buyer && cData.buyer.name), (cData.buyer2 && cData.buyer2.name)].filter(Boolean).join(" & ") || "Buyer"
+      const address = cData.address || [cData.addressLine1, cData.town, cData.postcode].filter(Boolean).join(", ") || caseId
+      const SUPABASE_URL = "https://tqspuxqjavhhqmhmbaen.supabase.co"
+      const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxc3B1eHFqYXZoaHFtaG1iYWVuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI0NDczMjMsImV4cCI6MjA4ODAyMzMyM30.5TCQjAM2WK_wvKXZy5wXGAtPTlI1yKUj5gyjce3tVVg"
+
+      // DB-side dedup: check if a joined notification already exists for this case+role
+      const checkRes = await fetch(
+        SUPABASE_URL + "/rest/v1/portal_messages?case_id=eq." + encodeURIComponent(caseId) +
+        "&thread_type=eq." + role + "&sender=eq." + role + "&staff_name=eq.portal-joined&select=id&limit=1",
+        { headers: { "apikey": SUPABASE_KEY, "Authorization": "Bearer " + SUPABASE_KEY } }
+      )
+      if (checkRes.ok) {
+        const existing = await checkRes.json()
+        if (existing.length > 0) {
+          localStorage.setItem(flagKey, "1")
+          return
+        }
+      }
+
+      // Insert the notification — sender must be role (vendor/buyer) to pass RLS
+      await fetch(SUPABASE_URL + "/rest/v1/portal_messages", {
+        method: "POST",
+        headers: {
+          "apikey": SUPABASE_KEY,
+          "Authorization": "Bearer " + SUPABASE_KEY,
+          "Content-Type": "application/json",
+          "Prefer": "return=minimal",
+        },
+        body: JSON.stringify({
+          case_id: String(caseId),
+          sender: role,           // "vendor" or "buyer" — passes RLS anon insert policy
+          staff_name: "portal-joined",  // sentinel value for dedup check
+          message: "👋 " + clientName + " has joined the portal and can now receive updates for " + address + ".",
+          thread_type: role,
+        }),
+      })
+      localStorage.setItem(flagKey, "1")
+    } catch (e) {
+      // Non-critical — don't block load
+      console.warn("Portal signup notification failed:", e)
+    }
+  }
+
   const loadCaseById = async function(id, data) {
     setLoading(true)
     try {
@@ -185,6 +237,8 @@ export default function DashboardPage({ session, caseId: propCaseId, showBack, o
       setContactRole(role)
       setSelectedCaseId(id)
       setShowPicker(false)
+      // Notify staff inbox first time this client visits the portal
+      notifyPortalSignup(id, role, cData)
       if (cData && cData.branch_id) {
         const branchResult = await supabase.from("branches").select("name, address, phone, email").eq("id", cData.branch_id).single()
         if (branchResult.data) setBranchData(branchResult.data)
