@@ -40,11 +40,22 @@ export default function MessagesDrawer({ caseId, session, onClose, branchName, b
   const loadMessages = async function() {
     const { data, error } = await supabase
       .from("portal_messages")
-      .select("id, sender, staff_name, message, created_at, thread_type")
+      .select("id, sender, staff_name, message, created_at, thread_type, read_at")
       .eq("case_id", String(caseId))
       .eq("thread_type", role)
       .order("created_at", { ascending: true })
-    if (!error && data) setMessages(data)
+    if (!error && data) {
+      setMessages(data)
+      // Mark unread staff replies as read
+      const unreadIds = data
+        .filter(function(m) { return m.sender === "staff" && !m.read_at })
+        .map(function(m) { return m.id })
+      if (unreadIds.length > 0) {
+        supabase.from("portal_messages")
+          .update({ read_at: new Date().toISOString() })
+          .in("id", unreadIds)
+      }
+    }
     setLoading(false)
   }
 
