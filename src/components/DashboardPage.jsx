@@ -352,7 +352,18 @@ export default function DashboardPage({ session, caseId: propCaseId, showBack, o
                 showBack && React.createElement("button", { onClick: onBack, style: { background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8, padding: "6px 14px", color: "rgba(255,255,255,0.6)", fontSize: 11, fontFamily: "Inter, sans-serif", fontWeight: 500, cursor: "pointer" } }, "← My Sales"),
                 React.createElement("div", { style: { position: "relative", display: "inline-flex" } },
                 React.createElement("button", {
-                  onClick: function() { setShowMessages(true); setUnreadCount(0) },
+                  onClick: function() {
+                  setShowMessages(true)
+                  setUnreadCount(0)
+                  if (selectedCaseId && contactRole) {
+                    supabase.from("portal_messages")
+                      .update({ read_at: new Date().toISOString() })
+                      .eq("case_id", String(selectedCaseId))
+                      .eq("thread_type", contactRole)
+                      .eq("sender", "staff")
+                      .is("read_at", null)
+                  }
+                },
                   style: { background: unreadCount > 0 ? "rgba(99,102,241,0.25)" : "rgba(255,255,255,0.07)", border: "1px solid " + (unreadCount > 0 ? "rgba(99,102,241,0.5)" : "rgba(255,255,255,0.12)"), borderRadius: 8, width: 34, height: 34, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 16, transition: "all 0.2s" }
                 }, "💬"),
                 unreadCount > 0 && React.createElement("div", {
@@ -403,7 +414,18 @@ export default function DashboardPage({ session, caseId: propCaseId, showBack, o
           ),
 
           React.createElement("button", {
-            onClick: function() { setShowMessages(true); setUnreadCount(0) },
+            onClick: function() {
+                  setShowMessages(true)
+                  setUnreadCount(0)
+                  if (selectedCaseId && contactRole) {
+                    supabase.from("portal_messages")
+                      .update({ read_at: new Date().toISOString() })
+                      .eq("case_id", String(selectedCaseId))
+                      .eq("thread_type", contactRole)
+                      .eq("sender", "staff")
+                      .is("read_at", null)
+                  }
+                },
             style: { marginTop: 14, width: "100%", background: unreadCount > 0 ? "rgba(99,102,241,0.2)" : "rgba(255,255,255,0.08)", border: "1px solid " + (unreadCount > 0 ? "rgba(99,102,241,0.4)" : "rgba(255,255,255,0.15)"), borderRadius: 12, padding: "12px 20px", color: "rgba(255,255,255,0.85)", fontSize: 14, fontWeight: 600, fontFamily: "Inter, sans-serif", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }
           },
             React.createElement("span", { style: { fontSize: 16 } }, "\ud83d\udcac"),
