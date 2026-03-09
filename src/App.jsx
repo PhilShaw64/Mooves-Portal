@@ -37,6 +37,129 @@ function getStageLabel(caseData) {
   return 'Completion'
 }
 
+function LoginPage({ onLogin }) {
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [resetSent, setResetSent] = useState(false)
+  const [showReset, setShowReset] = useState(false)
+
+  const handleLogin = async (e) => {
+    e.preventDefault()
+    if (!email.trim() || !password.trim()) return
+    setLoading(true)
+    setError('')
+    const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim(), password })
+    setLoading(false)
+    if (error) {
+      setError('Incorrect email or password. Please try again.')
+    } else {
+      onLogin(data.session)
+    }
+  }
+
+  const handleReset = async (e) => {
+    e.preventDefault()
+    if (!email.trim()) { setError('Enter your email address first.'); return }
+    setLoading(true)
+    setError('')
+    await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: window.location.origin + '/?reset=1',
+    })
+    setLoading(false)
+    setResetSent(true)
+  }
+
+  return (
+    <div style={{ minHeight: '100vh', background: 'linear-gradient(150deg, #071527 0%, #0d2044 45%, #0f2952 100%)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif' }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=DM+Serif+Display:ital@0;1&display=swap');
+        * { box-sizing: border-box; }
+        .login-input { width: 100%; background: rgba(255,255,255,0.07); border: 1.5px solid rgba(255,255,255,0.12); border-radius: 12px; padding: 14px 16px; color: #fff; fontSize: 16px; fontFamily: Inter, sans-serif; outline: none; transition: border-color 0.15s; }
+        .login-input::placeholder { color: rgba(255,255,255,0.3); }
+        .login-input:focus { border-color: rgba(99,102,241,0.7); }
+        .login-btn { width: 100%; background: #0F766E; border: none; border-radius: 12px; padding: 15px; color: #fff; fontSize: 15px; fontWeight: 700; fontFamily: Inter, sans-serif; cursor: pointer; transition: background 0.15s; }
+        .login-btn:hover { background: #0d6560; }
+        .login-btn:disabled { background: rgba(255,255,255,0.1); cursor: default; }
+      `}</style>
+
+      <div style={{ position: 'absolute', top: -80, right: -60, width: 340, height: 340, background: 'radial-gradient(circle, rgba(79,70,229,0.18) 0%, transparent 65%)', pointerEvents: 'none' }} />
+      <div style={{ position: 'absolute', bottom: -60, left: -40, width: 260, height: 260, background: 'radial-gradient(circle, rgba(15,118,110,0.15) 0%, transparent 65%)', pointerEvents: 'none' }} />
+
+      <div style={{ width: '100%', maxWidth: 380, position: 'relative', zIndex: 1 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 40, justifyContent: 'center' }}>
+          <div style={{ width: 36, height: 36, background: '#0F766E', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 16, color: '#fff' }}>M</div>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 15, color: 'rgba(255,255,255,0.9)', lineHeight: 1.1 }}>Mooves</div>
+            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Sale Tracker</div>
+          </div>
+        </div>
+
+        <div style={{ fontFamily: 'DM Serif Display, serif', fontSize: 30, color: '#fff', textAlign: 'center', marginBottom: 8 }}>
+          {showReset ? 'Reset password' : 'Welcome back'}
+        </div>
+        <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.45)', textAlign: 'center', marginBottom: 32 }}>
+          {showReset ? 'Enter your email and we\'ll send a reset link.' : 'Sign in to track your sale progress.'}
+        </div>
+
+        {resetSent ? (
+          <div style={{ background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.25)', borderRadius: 12, padding: '16px 20px', textAlign: 'center' }}>
+            <div style={{ fontSize: 24, marginBottom: 8 }}>✅</div>
+            <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.8)', lineHeight: 1.6 }}>
+              Check your email for a password reset link. It may take a minute to arrive.
+            </div>
+            <button onClick={() => { setShowReset(false); setResetSent(false) }} style={{ marginTop: 14, background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', fontSize: 13, cursor: 'pointer', textDecoration: 'underline' }}>
+              Back to sign in
+            </button>
+          </div>
+        ) : (
+          <form onSubmit={showReset ? handleReset : handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <input
+              className="login-input"
+              type="email"
+              placeholder="Email address"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              autoComplete="email"
+              style={{ fontSize: 16 }}
+            />
+            {!showReset && (
+              <input
+                className="login-input"
+                type="password"
+                placeholder="Password"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                autoComplete="current-password"
+                style={{ fontSize: 16 }}
+              />
+            )}
+
+            {error && (
+              <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 10, padding: '10px 14px', fontSize: 13, color: '#fca5a5' }}>
+                {error}
+              </div>
+            )}
+
+            <button className="login-btn" type="submit" disabled={loading}>
+              {loading ? 'Please wait…' : showReset ? 'Send reset link' : 'Sign in'}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => { setShowReset(!showReset); setError('') }}
+              style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', fontSize: 13, cursor: 'pointer', textAlign: 'center', padding: '4px 0' }}
+            >
+              {showReset ? '← Back to sign in' : 'Forgot your password?'}
+            </button>
+          </form>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function CasePickerPage({ session, onSelectCase }) {
   const [cases, setCases] = useState([])
   const [loading, setLoading] = useState(true)
@@ -47,31 +170,15 @@ function CasePickerPage({ session, onSelectCase }) {
   const loadCases = async () => {
     try {
       const email = session.user.email
-      const { data, error } = await supabase
-        .from('cases')
-        .select('id, data')
-        .or(`data->>'vendor'->>'email'.eq.${email},data->>'buyer'->>'email'.eq.${email}`)
-
-      // Fallback: fetch all and filter client-side (more compatible)
-      const { data: allData } = await supabase
-        .from('cases')
-        .select('id, data')
-
+      const { data: allData } = await supabase.from('cases').select('id, data')
       const matched = (allData || []).filter(row => {
         const d = row.data || {}
-        return (d.vendor && d.vendor.email === email) ||
-               (d.buyer && d.buyer.email === email)
+        return (d.vendor && d.vendor.email === email) || (d.buyer && d.buyer.email === email)
       })
-
       setCases(matched)
-
-      // Fetch branch names
       const branchIds = [...new Set(matched.map(r => r.data && r.data.branch_id).filter(Boolean))]
       if (branchIds.length > 0) {
-        const { data: branches } = await supabase
-          .from('branches')
-          .select('id, name')
-          .in('id', branchIds)
+        const { data: branches } = await supabase.from('branches').select('id, name').in('id', branchIds)
         const map = {}
         ;(branches || []).forEach(b => { map[b.id] = b.name })
         setBranchNames(map)
@@ -106,7 +213,7 @@ function CasePickerPage({ session, onSelectCase }) {
     <div style={{ minHeight: '100vh', background: '#f3f4f6', fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif' }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=DM+Serif+Display:ital@0;1&display=swap');
-        .case-card { background: #fff; border-radius: 16px; border: 1.5px solid #e5e7eb; padding: 20px; cursor: pointer; transition: all 0.15s; text-decoration: none; display: block; }
+        .case-card { background: #fff; border-radius: 16px; border: 1.5px solid #e5e7eb; padding: 20px; cursor: pointer; transition: all 0.15s; }
         .case-card:hover { border-color: #a5b4fc; box-shadow: 0 4px 20px rgba(99,102,241,0.1); transform: translateY(-1px); }
         .case-card:active { transform: translateY(0); }
       `}</style>
@@ -124,7 +231,6 @@ function CasePickerPage({ session, onSelectCase }) {
             </div>
             <button onClick={handleSignOut} style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '6px 14px', color: 'rgba(255,255,255,0.5)', fontSize: 11, fontWeight: 500, cursor: 'pointer' }}>Sign out</button>
           </div>
-
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 20, padding: '5px 12px 5px 9px', marginBottom: 14 }}>
             <span style={{ fontSize: 14, lineHeight: 1 }}>👋</span>
             <span style={{ fontSize: 12, fontWeight: 500, color: 'rgba(255,255,255,0.65)' }}>{greeting}{firstName ? `, ${firstName}` : ''}</span>
@@ -156,7 +262,6 @@ function CasePickerPage({ session, onSelectCase }) {
               const stage = getStageLabel(d)
               const isCompleted = d.completed
               const branchName = (d.branch_id && branchNames[d.branch_id]) || 'Northwood'
-
               return (
                 <div key={row.id} className="case-card" onClick={() => onSelectCase(row.id, d)}>
                   <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 14 }}>
@@ -190,13 +295,13 @@ export default function App() {
   const [session, setSession] = useState(null)
   const [inviteToken, setInviteToken] = useState(null)
   const [inviteData, setInviteData] = useState(null)
-  const [errorMsg, setErrorMsg] = useState('')
   const [selectedCaseId, setSelectedCaseId] = useState(null)
   const [allCases, setAllCases] = useState([])
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const token = params.get('token')
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
         setSession(session)
@@ -208,11 +313,10 @@ export default function App() {
         validateToken(token)
         return
       }
-      setErrorMsg('No invite link found. Please check your email for your portal invite.')
-      setAppState('error')
+      // No session, no token — show login
+      setAppState('login')
     }).catch(() => {
-      setErrorMsg('Failed to initialise. Please try again.')
-      setAppState('error')
+      setAppState('login')
     })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -230,19 +334,15 @@ export default function App() {
       const { data: allData } = await supabase.from('cases').select('id, data')
       const matched = (allData || []).filter(row => {
         const d = row.data || {}
-        return (d.vendor && d.vendor.email === email) ||
-               (d.buyer && d.buyer.email === email)
+        return (d.vendor && d.vendor.email === email) || (d.buyer && d.buyer.email === email)
       })
-
       setAllCases(matched)
-
       if (matched.length === 1) {
         setSelectedCaseId(matched[0].id)
         setAppState('dashboard')
       } else if (matched.length > 1) {
         setAppState('case-picker')
       } else {
-        // Fall back to single case_id from user_metadata
         setSelectedCaseId(session.user.user_metadata && session.user.user_metadata.case_id)
         setAppState('dashboard')
       }
@@ -259,50 +359,25 @@ export default function App() {
         .select('case_id, email, role, expires_at, accepted_at')
         .eq('token', token)
         .single()
-      if (error || !data) {
-        setErrorMsg('This invite link is invalid or has expired.')
-        setAppState('error')
-        return
-      }
-      if (new Date(data.expires_at) < new Date()) {
-        setErrorMsg('This invite link has expired. Please contact your agent for a new one.')
-        setAppState('error')
-        return
-      }
+      if (error || !data) { setAppState('login'); return }
+      if (new Date(data.expires_at) < new Date()) { setAppState('login'); return }
       const { data: caseRow } = await supabase.from('cases').select('data').eq('id', data.case_id).single()
       const caseData = caseRow?.data || {}
       const address = caseData.address || [caseData.addressLine1, caseData.town, caseData.postcode].filter(Boolean).join(', ')
       setInviteData({ caseId: data.case_id, email: data.email, role: data.role, address, token })
       setAppState('invite')
     } catch (err) {
-      setErrorMsg('Something went wrong validating your invite. Please try again.')
-      setAppState('error')
+      setAppState('login')
     }
   }
 
   const handleInviteAccepted = () => setAppState('set-password')
-
-  const handleSelectCase = (caseId) => {
-    setSelectedCaseId(caseId)
-    setAppState('dashboard')
-  }
-
-  const handleBackToPicker = () => {
-    setAppState('case-picker')
-  }
+  const handleSelectCase = (caseId) => { setSelectedCaseId(caseId); setAppState('dashboard') }
+  const handleBackToPicker = () => setAppState('case-picker')
+  const handleLogin = (session) => { setSession(session); checkCases(session) }
 
   if (appState === 'loading') return <LoadingScreen />
-
-  if (appState === 'error') return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-      <div style={{ maxWidth: 400, textAlign: 'center' }}>
-        <div style={{ fontSize: 48, marginBottom: 16 }}>🔒</div>
-        <div style={{ fontFamily: "'DM Serif Display', serif", fontSize: 24, color: '#1a1a2e', marginBottom: 12 }}>Access Required</div>
-        <div style={{ fontSize: 15, color: '#6b7280', lineHeight: 1.6 }}>{errorMsg}</div>
-      </div>
-    </div>
-  )
-
+  if (appState === 'login') return <LoginPage onLogin={handleLogin} />
   if (appState === 'invite') return <InvitePage inviteData={inviteData} onAccept={handleInviteAccepted} />
   if (appState === 'set-password') return <SetPasswordPage inviteData={inviteData} />
   if (appState === 'case-picker') return <CasePickerPage session={session} onSelectCase={handleSelectCase} />
