@@ -123,6 +123,7 @@ export default function DashboardPage({ session, caseId: propCaseId, showBack, o
   const [activeSection, setActiveSection] = useState("progress")
   const [showPicker, setShowPicker] = useState(false)
   const [showMessages, setShowMessages] = useState(false)
+  const [unreadCount, setUnreadCount] = useState(0)
 
   useEffect(function() { loadAllCases() }, [session])
 
@@ -205,8 +206,32 @@ export default function DashboardPage({ session, caseId: propCaseId, showBack, o
     setBranchData(null)
     setSelectedCaseId(null)
     setContactRole("vendor")
+    setUnreadCount(0)
     setShowPicker(true)
   }
+
+  const fetchUnreadCount = async function(caseId, role) {
+    if (!caseId || !role) return
+    try {
+      const { count } = await supabase
+        .from("portal_messages")
+        .select("id", { count: "exact", head: true })
+        .eq("case_id", String(caseId))
+        .eq("thread_type", role)
+        .eq("sender", "staff")
+        .is("read_at", null)
+      setUnreadCount(count || 0)
+    } catch(e) { /* silent */ }
+  }
+
+  useEffect(function() {
+    if (!selectedCaseId || !contactRole) return
+    fetchUnreadCount(selectedCaseId, contactRole)
+    var interval = setInterval(function() {
+      fetchUnreadCount(selectedCaseId, contactRole)
+    }, 30000)
+    return function() { clearInterval(interval) }
+  }, [selectedCaseId, contactRole])
 
   if (loading) return (
     React.createElement("div", { style: { minHeight: "100vh", background: "#f3f4f6", display: "flex", alignItems: "center", justifyContent: "center" } },
@@ -325,7 +350,16 @@ export default function DashboardPage({ session, caseId: propCaseId, showBack, o
               ),
               React.createElement("div", { style: { display: "flex", gap: 8 } },
                 showBack && React.createElement("button", { onClick: onBack, style: { background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8, padding: "6px 14px", color: "rgba(255,255,255,0.6)", fontSize: 11, fontFamily: "Inter, sans-serif", fontWeight: 500, cursor: "pointer" } }, "← My Sales"),
-                React.createElement("button", { onClick: handleSignOut, style: { background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8, padding: "6px 14px", color: "rgba(255,255,255,0.5)", fontSize: 11, fontFamily: "Inter, sans-serif", fontWeight: 500, cursor: "pointer" } }, "Sign out")
+                React.createElement("div", { style: { position: "relative", display: "inline-flex" } },
+                React.createElement("button", {
+                  onClick: function() { setShowMessages(true); setUnreadCount(0) },
+                  style: { background: unreadCount > 0 ? "rgba(99,102,241,0.25)" : "rgba(255,255,255,0.07)", border: "1px solid " + (unreadCount > 0 ? "rgba(99,102,241,0.5)" : "rgba(255,255,255,0.12)"), borderRadius: 8, width: 34, height: 34, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 16, transition: "all 0.2s" }
+                }, "💬"),
+                unreadCount > 0 && React.createElement("div", {
+                  style: { position: "absolute", top: -5, right: -5, background: "#ef4444", borderRadius: "50%", minWidth: 18, height: 18, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color: "#fff", padding: "0 4px", fontFamily: "Inter, sans-serif", pointerEvents: "none" }
+                }, unreadCount > 9 ? "9+" : String(unreadCount))
+              ),
+              React.createElement("button", { onClick: handleSignOut, style: { background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8, padding: "6px 14px", color: "rgba(255,255,255,0.5)", fontSize: 11, fontFamily: "Inter, sans-serif", fontWeight: 500, cursor: "pointer" } }, "Sign out")
               )
             )
           ),
@@ -369,11 +403,11 @@ export default function DashboardPage({ session, caseId: propCaseId, showBack, o
           ),
 
           React.createElement("button", {
-            onClick: function() { setShowMessages(true) },
-            style: { marginTop: 14, width: "100%", background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 12, padding: "12px 20px", color: "rgba(255,255,255,0.85)", fontSize: 14, fontWeight: 600, fontFamily: "Inter, sans-serif", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }
+            onClick: function() { setShowMessages(true); setUnreadCount(0) },
+            style: { marginTop: 14, width: "100%", background: unreadCount > 0 ? "rgba(99,102,241,0.2)" : "rgba(255,255,255,0.08)", border: "1px solid " + (unreadCount > 0 ? "rgba(99,102,241,0.4)" : "rgba(255,255,255,0.15)"), borderRadius: 12, padding: "12px 20px", color: "rgba(255,255,255,0.85)", fontSize: 14, fontWeight: 600, fontFamily: "Inter, sans-serif", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }
           },
             React.createElement("span", { style: { fontSize: 16 } }, "\ud83d\udcac"),
-            React.createElement("span", null, "Ask your estate agent a question")
+            React.createElement("span", null, unreadCount > 0 ? (unreadCount === 1 ? "1 new reply from your agent" : unreadCount + " new replies from your agent") : "Ask your estate agent a question")
           )
         )
       ),
