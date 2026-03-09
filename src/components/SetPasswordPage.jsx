@@ -20,6 +20,7 @@ export default function SetPasswordPage({ inviteData }) {
         password,
         options: {
           data: {
+            source: 'portal',
             role: 'client',
             case_id: inviteData.caseId,
             portal_role: inviteData.role, // 'vendor' or 'buyer'
