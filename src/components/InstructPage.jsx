@@ -4,8 +4,8 @@
 
 import { useState, useEffect } from "react";
 
-const SUPABASE_URL = "https://tqspuxqjavhhqmhmbaen.supabase.co";
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxc3B1eHFqYXZoaHFtaG1iYWVuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MDk4MjA4MDAsImV4cCI6MjAyNTM5NjgwMH0.placeholder";
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 const fmtCcy = (n) => n ? "£" + Number(n).toLocaleString("en-GB", { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : null;
 
