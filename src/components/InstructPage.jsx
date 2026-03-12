@@ -298,6 +298,15 @@ export function InstructPage({ token }) {
               <label style={lStyle}>Email Address</label>
               <input value={email} onChange={e => setEmail(e.target.value)} placeholder="e.g. john@email.com" style={iStyle} type="email" />
             </div>
+            <div>
+              <label style={lStyle}>Home Address <span style={{ fontSize: 10, color: "#94a3b8", fontWeight: 400, textTransform: "none" }}>if different to the sale property</span></label>
+              <input value={homeAddr} onChange={e => setHomeAddr(e.target.value)} placeholder="Address line 1" style={{ ...iStyle, marginBottom: 6 }} />
+              <input value={homeAddr2} onChange={e => setHomeAddr2(e.target.value)} placeholder="Address line 2 (optional)" style={{ ...iStyle, marginBottom: 6 }} />
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+                <input value={homeTown} onChange={e => setHomeTown(e.target.value)} placeholder="Town / City" style={iStyle} />
+                <input value={homePostcode} onChange={e => setHomePostcode(e.target.value)} placeholder="Postcode" style={iStyle} />
+              </div>
+            </div>
           </div>
         </div>
  
