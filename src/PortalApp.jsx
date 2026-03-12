@@ -4,6 +4,7 @@ import InvitePage from './components/InvitePage.jsx'
 import SetPasswordPage from './components/SetPasswordPage.jsx'
 import DashboardPage from './components/DashboardPage.jsx'
 import LoadingScreen from './components/LoadingScreen.jsx'
+import { InstructPage } from './components/InstructPage.jsx'
 
 function getGreeting() {
   const h = new Date().getHours()
@@ -100,7 +101,7 @@ function LoginPage({ onLogin }) {
           {showReset ? 'Reset password' : 'Welcome back'}
         </div>
         <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.45)', textAlign: 'center', marginBottom: 32 }}>
-          {showReset ? 'Enter your email and we\'ll send a reset link.' : 'Sign in to track your sale progress.'}
+          {showReset ? "Enter your email and we'll send a reset link." : 'Sign in to track your sale progress.'}
         </div>
 
         {resetSent ? (
@@ -295,12 +296,22 @@ export default function App() {
   const [session, setSession] = useState(null)
   const [inviteToken, setInviteToken] = useState(null)
   const [inviteData, setInviteData] = useState(null)
+  const [instructToken, setInstructToken] = useState(null)
   const [selectedCaseId, setSelectedCaseId] = useState(null)
   const [allCases, setAllCases] = useState([])
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const token = params.get('token')
+
+    // Detect instruct URL: /instruct/:token or ?instruct=token
+    const pathMatch = window.location.pathname.match(/^\/instruct\/([a-zA-Z0-9_-]+)$/)
+    const instructTok = pathMatch?.[1] || params.get('instruct')
+    if (instructTok) {
+      setInstructToken(instructTok)
+      setAppState('instruct')
+      return
+    }
 
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
@@ -313,7 +324,6 @@ export default function App() {
         validateToken(token)
         return
       }
-      // No session, no token — show login
       setAppState('login')
     }).catch(() => {
       setAppState('login')
@@ -380,6 +390,7 @@ export default function App() {
   if (appState === 'login') return <LoginPage onLogin={handleLogin} />
   if (appState === 'invite') return <InvitePage inviteData={inviteData} onAccept={handleInviteAccepted} />
   if (appState === 'set-password') return <SetPasswordPage inviteData={inviteData} />
+  if (appState === 'instruct') return <InstructPage token={instructToken} />
   if (appState === 'case-picker') return <CasePickerPage session={session} onSelectCase={handleSelectCase} />
   if (appState === 'dashboard') return (
     <DashboardPage
