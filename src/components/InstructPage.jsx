@@ -4,8 +4,8 @@
 
 import { useState, useEffect } from "react";
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const SUPABASE_URL = "https://tqspuxqjavhhqmhmbaen.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxc3B1eHFqYXZoaHFtaG1iYWVuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MDk4MjA4MDAsImV4cCI6MjAyNTM5NjgwMH0.placeholder";
 
 const fmtCcy = (n) => n ? "£" + Number(n).toLocaleString("en-GB", { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : null;
 
@@ -62,6 +62,14 @@ export function InstructPage({ token }) {
   const [owner2Email,  setOwner2Email]  = useState("");
   const [prefPrice,    setPrefPrice]    = useState("");
   const [notes,        setNotes]        = useState("");
+  const [homeAddr,     setHomeAddr]     = useState("");
+  const [homeAddr2,    setHomeAddr2]    = useState("");
+  const [homeTown,     setHomeTown]     = useState("");
+  const [homePostcode, setHomePostcode] = useState("");
+  const [owner2Addr,   setOwner2Addr]   = useState("");
+  const [owner2Addr2,  setOwner2Addr2]  = useState("");
+  const [owner2Town,   setOwner2Town]   = useState("");
+  const [owner2Postcode,setOwner2Postcode] = useState("");
   const [submitting,   setSubmitting]   = useState(false);
   const [submitError,  setSubmitError]  = useState("");
 
@@ -138,6 +146,18 @@ export function InstructPage({ token }) {
         owner2_phone:  owner2Phone.trim() || null,
         owner2_email:  owner2Email.trim().toLowerCase() || null,
         preferred_price: prefPrice ? Number(prefPrice.replace(/[^0-9]/g, "")) : null,
+        home_address: {
+          line1:    homeAddr.trim()     || null,
+          line2:    homeAddr2.trim()    || null,
+          town:     homeTown.trim()     || null,
+          postcode: homePostcode.trim() || null,
+        },
+        owner2_home_address: owner2Name.trim() ? {
+          line1:    owner2Addr.trim()     || null,
+          line2:    owner2Addr2.trim()    || null,
+          town:     owner2Town.trim()     || null,
+          postcode: owner2Postcode.trim() || null,
+        } : null,
         notes:         notes.trim() || null,
         instructed_at: new Date().toISOString(),
       };
@@ -295,16 +315,27 @@ export function InstructPage({ token }) {
               <input value={owner2Name} onChange={e => setOwner2Name(e.target.value)} placeholder="Full name" style={iStyle} />
             </div>
             {owner2Name.trim() && (
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                <div>
-                  <label style={lStyle}>Phone</label>
-                  <input value={owner2Phone} onChange={e => setOwner2Phone(e.target.value)} placeholder="07..." style={iStyle} type="tel" />
+              <>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                  <div>
+                    <label style={lStyle}>Phone</label>
+                    <input value={owner2Phone} onChange={e => setOwner2Phone(e.target.value)} placeholder="07..." style={iStyle} type="tel" />
+                  </div>
+                  <div>
+                    <label style={lStyle}>Email</label>
+                    <input value={owner2Email} onChange={e => setOwner2Email(e.target.value)} placeholder="email@..." style={iStyle} type="email" />
+                  </div>
                 </div>
                 <div>
-                  <label style={lStyle}>Email</label>
-                  <input value={owner2Email} onChange={e => setOwner2Email(e.target.value)} placeholder="email@..." style={iStyle} type="email" />
+                  <label style={lStyle}>Home Address <span style={{ fontSize: 10, color: "#94a3b8", fontWeight: 400, textTransform: "none" }}>if different to the sale property</span></label>
+                  <input value={owner2Addr} onChange={e => setOwner2Addr(e.target.value)} placeholder="Address line 1" style={{ ...iStyle, marginBottom: 6 }} />
+                  <input value={owner2Addr2} onChange={e => setOwner2Addr2(e.target.value)} placeholder="Address line 2 (optional)" style={{ ...iStyle, marginBottom: 6 }} />
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+                    <input value={owner2Town} onChange={e => setOwner2Town(e.target.value)} placeholder="Town / City" style={iStyle} />
+                    <input value={owner2Postcode} onChange={e => setOwner2Postcode(e.target.value)} placeholder="Postcode" style={iStyle} />
+                  </div>
                 </div>
-              </div>
+              </>
             )}
           </div>
         </div>
