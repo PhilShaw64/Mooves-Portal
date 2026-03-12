@@ -5,9 +5,7 @@
 import { useState, useEffect } from "react";
 
 const SUPABASE_URL = "https://tqspuxqjavhhqmhmbaen.supabase.co";
-const SUPABASE_KEY = "ce38b85d8aa58695704ba1769eb6c54bfdba845295afc57e5917b5b185fef13a
-
-";
+const SUPABASE_KEY = "ce38b85d8aa58695704ba1769eb6c54bfdba845295afc57e5917b5b185fef13a";
 
 const fmtCcy = (n) => n ? "£" + Number(n).toLocaleString("en-GB", { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : null;
 
